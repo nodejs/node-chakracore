@@ -247,24 +247,7 @@ class NodeTraceStateObserver :
     trace_process->SetString("napi", node_napi_version);
 
 #if HAVE_OPENSSL
-    // Stupid code to slice out the version string.
-    {  // NOLINT(whitespace/braces)
-      size_t i, j, k;
-      int c;
-      for (i = j = 0, k = sizeof(OPENSSL_VERSION_TEXT) - 1; i < k; ++i) {
-        c = OPENSSL_VERSION_TEXT[i];
-        if ('0' <= c && c <= '9') {
-          for (j = i + 1; j < k; ++j) {
-            c = OPENSSL_VERSION_TEXT[j];
-            if (c == ' ')
-              break;
-          }
-          break;
-        }
-      }
-      trace_process->SetString("openssl",
-                              std::string(&OPENSSL_VERSION_TEXT[i], j - i));
-    }
+    trace_process->SetString("openssl", crypto::GetOpenSSLVersion());
 #endif
     trace_process->EndDictionary();
 
@@ -303,9 +286,9 @@ static struct {
 #if NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {
     tracing_agent_.reset(new tracing::Agent());
+    node::tracing::TraceEventHelper::SetAgent(tracing_agent_.get());
     auto controller = tracing_agent_->GetTracingController();
     controller->AddTraceStateObserver(new NodeTraceStateObserver(controller));
-    tracing::TraceEventHelper::SetTracingController(controller);
     StartTracingAgent();
     // Tracing must be initialized before platform threads are created.
     platform_ = new NodePlatform(thread_pool_size, controller);
@@ -1053,14 +1036,14 @@ static MaybeLocal<Value> ExecuteString(Environment* env,
 }
 
 
-NO_RETURN void Abort() {
+[[noreturn]] void Abort() {
   DumpBacktrace(stderr);
   fflush(stderr);
   ABORT_NO_BACKTRACE();
 }
 
 
-NO_RETURN void Assert(const char* const (*args)[4]) {
+[[noreturn]] void Assert(const char* const (*args)[4]) {
   auto filename = (*args)[0];
   auto linenum = (*args)[1];
   auto message = (*args)[2];
@@ -1376,7 +1359,7 @@ static void OnFatalError(const char* location, const char* message) {
 }
 
 
-NO_RETURN void FatalError(const char* location, const char* message) {
+[[noreturn]] void FatalError(const char* location, const char* message) {
   OnFatalError(location, message);
   // to suppress compiler warning
   ABORT();
@@ -1789,26 +1772,10 @@ void SetupProcessObject(Environment* env,
       FIXED_ONE_BYTE_STRING(env->isolate(), node_napi_version));
 
 #if HAVE_OPENSSL
-  // Stupid code to slice out the version string.
-  {  // NOLINT(whitespace/braces)
-    size_t i, j, k;
-    int c;
-    for (i = j = 0, k = sizeof(OPENSSL_VERSION_TEXT) - 1; i < k; ++i) {
-      c = OPENSSL_VERSION_TEXT[i];
-      if ('0' <= c && c <= '9') {
-        for (j = i + 1; j < k; ++j) {
-          c = OPENSSL_VERSION_TEXT[j];
-          if (c == ' ')
-            break;
-        }
-        break;
-      }
-    }
-    READONLY_PROPERTY(
-        versions,
-        "openssl",
-        OneByteString(env->isolate(), &OPENSSL_VERSION_TEXT[i], j - i));
-  }
+  READONLY_PROPERTY(
+      versions,
+      "openssl",
+      OneByteString(env->isolate(), crypto::GetOpenSSLVersion().c_str()));
 #endif
 
   // process.arch
@@ -2890,7 +2857,7 @@ MultiIsolatePlatform* GetMainThreadMultiIsolatePlatform() {
 
 MultiIsolatePlatform* CreatePlatform(
     int thread_pool_size,
-    TracingController* tracing_controller) {
+    node::tracing::TracingController* tracing_controller) {
   return new NodePlatform(thread_pool_size, tracing_controller);
 }
 

@@ -31,11 +31,13 @@ class TraceObject {
 
   TraceObject() {}
   ~TraceObject();
-  void Initialize(char phase, const uint8_t* category_enabled_flag,
-                  const char* name, const char* scope, uint64_t id,
-                  uint64_t bind_id, int num_args, const char** arg_names,
-                  const uint8_t* arg_types, const uint64_t* arg_values,
-                  unsigned int flags);
+  void Initialize(
+      char phase, const uint8_t* category_enabled_flag, const char* name,
+      const char* scope, uint64_t id, uint64_t bind_id, int num_args,
+      const char** arg_names, const uint8_t* arg_types,
+      const uint64_t* arg_values,
+      std::unique_ptr<v8::ConvertableToTraceFormat>* arg_convertables,
+      unsigned int flags, int64_t timestamp, int64_t cpu_timestamp);
   void UpdateDuration();
   void InitializeForTesting(char phase, const uint8_t* category_enabled_flag,
                             const char* name, const char* scope, uint64_t id,
@@ -241,6 +243,7 @@ class TracingController
   void StopTracing();
 
   virtual int64_t CurrentTimestampMicroseconds();
+  virtual int64_t CurrentCpuTimestampMicroseconds();
 
  private:
   const uint8_t* GetCategoryGroupEnabledInternal(const char* category_group);

@@ -28,7 +28,6 @@ const assert = require('assert');
 const os = require('os');
 const { exec, execSync, spawnSync } = require('child_process');
 const util = require('util');
-const { fixturesDir } = require('./fixtures');
 const tmpdir = require('./tmpdir');
 const {
   bits,
@@ -50,7 +49,6 @@ const isMainThread = (() => {
 
 const isChakraEngine = 'chakracore' in process.versions;
 const isWindows = process.platform === 'win32';
-const isWOW64 = isWindows && (process.env.PROCESSOR_ARCHITEW6432 !== undefined);
 const isAIX = process.platform === 'aix';
 const isLinuxPPCBE = (process.platform === 'linux') &&
                      (process.arch === 'ppc64') &&
@@ -177,13 +175,10 @@ function childShouldThrowAndAbort() {
   });
 }
 
-function ddCommand(filename, kilobytes) {
-  if (isWindows) {
-    const p = path.resolve(fixturesDir, 'create-file.js');
-    return `"${process.argv[0]}" "${p}" "${filename}" ${kilobytes * 1024}`;
-  } else {
-    return `dd if=/dev/zero of="${filename}" bs=1024 count=${kilobytes}`;
-  }
+function createZeroFilledFile(filename) {
+  const fd = fs.openSync(filename, 'w');
+  fs.ftruncateSync(fd, 10 * 1024 * 1024);
+  fs.closeSync(fd);
 }
 
 
@@ -314,12 +309,6 @@ function mustCall(fn, exact) {
 
 function mustCallAtLeast(fn, minimum) {
   return _mustCallInner(fn, minimum, 'minimum');
-}
-
-function mustCallAsync(fn, exact) {
-  return mustCall((...args) => {
-    return Promise.resolve(fn(...args)).then(mustCall((val) => val));
-  }, exact);
 }
 
 function _mustCallInner(fn, criteria = 1, field) {
@@ -741,7 +730,7 @@ module.exports = {
   busyLoop,
   canCreateSymLink,
   childShouldThrowAndAbort,
-  ddCommand,
+  createZeroFilledFile,
   disableCrashOnUnhandledRejection,
   engineSpecificMessage,
   enoughTestCpu,
@@ -767,10 +756,8 @@ module.exports = {
   isOSX,
   isSunOS,
   isWindows,
-  isWOW64,
   localIPv6Hosts,
   mustCall,
-  mustCallAsync,
   mustCallAtLeast,
   mustNotCall,
   nodeProcessAborted,

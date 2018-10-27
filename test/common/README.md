@@ -13,6 +13,7 @@ This directory contains modules used to test the Node.js implementation.
 * [Heap dump checker module](#heap-dump-checker-module)
 * [HTTP2 module](#http2-module)
 * [Internet module](#internet-module)
+* [tick module](#tick-module)
 * [tmpdir module](#tmpdir-module)
 * [WPT module](#wpt-module)
 
@@ -52,10 +53,9 @@ symlinks
 ([SeCreateSymbolicLinkPrivilege](https://msdn.microsoft.com/en-us/library/windows/desktop/bb530716(v=vs.85).aspx)).
 On non-Windows platforms, this always returns `true`.
 
-### ddCommand(filename, kilobytes)
-* return [&lt;Object>]
+### createZeroFilledFile(filename)
 
-Platform normalizes the `dd` command
+Creates a 10 MB file of all null characters.
 
 ### disableCrashOnUnhandledRejection()
 
@@ -214,11 +214,6 @@ Platform check for SunOS.
 
 Platform check for Windows.
 
-### isWOW64
-* [&lt;boolean>]
-
-Platform check for Windows 32-bit on Windows 64-bit.
-
 ### localhostIPv4
 * [&lt;string>]
 
@@ -239,17 +234,6 @@ exactly `exact` number of times when the test is complete, then the test will
 fail.
 
 If `fn` is not provided, an empty function will be used.
-
-### mustCallAsync([fn][, exact])
-* `fn` [&lt;Function>]
-* `exact` [&lt;number>] default = 1
-* return [&lt;Function>]
-
-The same as `mustCall()`, except that it is also checked that the Promise
-returned by the function is fulfilled for each invocation of the function.
-
-The return value of the wrapped function is the return value of the original
-function, if necessary wrapped as a promise.
 
 ### mustCallAtLeast([fn][, minimum])
 * `fn` [&lt;Function>] default = () => {}
@@ -760,6 +744,16 @@ a full `setImmediate()` invocation passes.
 `listener` is an object to make it easier to use a closure; the target object
 should not be in scope when `listener.ongc()` is created.
 
+
+## tick Module
+
+The `tick` module provides a helper function that can be used to call a callback
+after a given number of event loop "ticks".
+
+### tick(x, cb)
+
+* `x` [&lt;number>] Number of event loop "ticks".
+* `cb` [&lt;Function>] A callback function.
 
 ## tmpdir Module
 

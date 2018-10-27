@@ -5,19 +5,8 @@ prefix sequential
 # sample-test                       : PASS,FLAKY
 
 [true] # This section applies to all platforms
-# This test will be flaky until https://github.com/libuv/libuv/pull/1742 lands
-# on Node.js.
-test-fs-readfile-tostring-fail: PASS, FLAKY
-# https://github.com/nodejs/node/issues/23066
-test-gc-http-client-timeout: PASS, FLAKY
 # https://github.com/nodejs/node/issues/22336
 test-gc-http-client: PASS,FLAKY
-# https://github.com/nodejs/node/issues/23067
-test-gc-net-timeout: PASS,FLAKY
-# https://github.com/nodejs/node/issues/23089
-test-gc-http-client-onerror: PASS,FLAKY
-# https://github.com/nodejs/node/issues/23219
-test-gc-http-client-connaborted: PASS,FLAKY
 
 [$system==win32]
 # https://github.com/nodejs/node/issues/22327
@@ -33,6 +22,10 @@ test-http2-large-file: PASS, FLAKY
 
 [$system==aix]
 
+[$arch==arm]
+# https://github.com/nodejs/node/issues/20628
+test-http2-session-timeout: PASS,FLAKY
+
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-async-wrap-getasyncid : SKIP
@@ -45,6 +38,9 @@ test-inspector-break-when-eval : SKIP
 test-inspector-contexts : SKIP
 test-inspector-scriptparsed-context : SKIP
 test-inspector-stop-profile-after-done : SKIP
+
+# These tests require worker not implemented by node-chakracore
+test-benchmark-worker : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # This test can fail depending on the ports that other processes are using
