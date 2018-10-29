@@ -37,6 +37,10 @@ assert(common.engineSpecificMessage({
 }).test(process.versions[jsEngine]));
 assert(/^\d+$/.test(process.versions.modules));
 
+if (common.hasCrypto) {
+  assert(/^\d+\.\d+\.\d+[a-z]?$/.test(process.versions.openssl));
+}
+
 for (let i = 0; i < expected_keys.length; i++) {
   const key = expected_keys[i];
   const descriptor = Object.getOwnPropertyDescriptor(process.versions, key);
