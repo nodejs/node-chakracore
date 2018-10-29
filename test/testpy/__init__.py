@@ -159,10 +159,8 @@ class MessageTestCase(SimpleTestCase):
           + open(self.expected).read())
 
 class SimpleTestConfiguration(test.TestConfiguration):
-
   def __init__(self, context, root, section, additional=None):
-    super(SimpleTestConfiguration, self).__init__(context, root)
-    self.section = section
+    super(SimpleTestConfiguration, self).__init__(context, root, section)
     if additional is not None:
       self.additional_flags = additional
     else:
@@ -185,11 +183,6 @@ class SimpleTestConfiguration(test.TestConfiguration):
 
   def GetBuildRequirements(self):
     return ['sample', 'sample=shell']
-
-  def GetTestStatus(self, sections, defs):
-    status_file = join(self.root, '%s.status' % (self.section))
-    if exists(status_file):
-      test.ReadConfigurationInto(status_file, sections, defs)
 
 class ParallelTestConfiguration(SimpleTestConfiguration):
   def __init__(self, context, root, section, additional=None):
