@@ -1403,9 +1403,8 @@ void FatalException(Isolate* isolate,
     fatal_try_catch.SetVerbose(false);
 
     // This will return true if the JS layer handled it, false otherwise
-    Local<Value> caught =
-        fatal_exception_function.As<Function>()
-            ->Call(process_object, 1, &error);
+    MaybeLocal<Value> caught = fatal_exception_function.As<Function>()->Call(
+        env->context(), process_object, 1, &error);
 
     if (fatal_try_catch.HasTerminated())
       return;
@@ -1414,7 +1413,7 @@ void FatalException(Isolate* isolate,
       // The fatal exception function threw, so we must exit
       ReportException(env, fatal_try_catch);
       exit(7);
-    } else if (caught->IsFalse()) {
+    } else if (caught.ToLocalChecked()->IsFalse()) {
       ReportException(env, error, message);
 
       // fatal_exception_function call before may have set a new exit code ->
@@ -1442,6 +1441,18 @@ void FatalException(Isolate* isolate, const TryCatch& try_catch) {
   if (!try_catch.IsVerbose()) {
     FatalException(isolate, try_catch.Exception(), try_catch.Message());
   }
+}
+
+
+static void FatalException(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
+  Environment* env = Environment::GetCurrent(isolate);
+  if (env != nullptr && env->abort_on_uncaught_exception()) {
+    Abort();
+  }
+  Local<Value> exception = args[0];
+  Local<Message> message = Exception::CreateMessage(isolate, exception);
+  FatalException(isolate, exception, message);
 }
 
 
@@ -2188,6 +2199,10 @@ void LoadEnvironment(Environment* env) {
     return;
   }
 
+  Local<Function> trigger_fatal_exception =
+      env->NewFunctionTemplate(FatalException)->GetFunction(env->context())
+          .ToLocalChecked();
+
   // Bootstrap Node.js
   Local<Object> bootstrapper = Object::New(env->isolate());
   SetupBootstrapObject(env, bootstrapper);
@@ -2195,7 +2210,8 @@ void LoadEnvironment(Environment* env) {
   Local<Value> node_bootstrapper_args[] = {
     env->process_object(),
     bootstrapper,
-    bootstrapped_loaders
+    bootstrapped_loaders,
+    trigger_fatal_exception,
   };
   if (!ExecuteBootstrapper(env, node_bootstrapper.ToLocalChecked(),
                            arraysize(node_bootstrapper_args),
