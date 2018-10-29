@@ -1419,6 +1419,11 @@ dbl_align:
 #endif
         Js::Var varResult;
 
+//      the switch below to avoid asm variable function invocation which is no more compatible with Apple A12 processor on exception handling
+//      feel free to extend the asm (elegant) solution to support A12 and remove the following implementation
+//        
+//        varResult = arm64_CallFunction((JavascriptFunction*)function, args.Info, args.Values, entryPoint);
+
         unsigned count = args.Info.Count;
         switch(args.Info.Count) 
         {
@@ -1468,189 +1473,1217 @@ dbl_align:
                 break;
             case 11:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10]);
                 break;
             case 12:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11]);
                 break;
             case 13:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                             args.Values[10], args.Values[11], args.Values[12]);
                 break;
             case 14:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                         args.Values[10], args.Values[11], args.Values[12], args.Values[13]);
                 break;
             case 15:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14]);
                 break;
             case 16:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15]);
                 break;
             case 17:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16]);
                 break;
             case 18:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17]);
                 break;
             case 19:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18]);
                 break;
             case 20:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19]);
                 break;
             case 21:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20]);
                 break;
             case 22:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21]);
                 break;
             case 23:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22]);
                 break;
             case 24:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23]);
                 break;
             case 25:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24]);
                 break;
             case 26:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25]);
                 break;
             case 27:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26]);
                 break;
             case 28:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27]);
                 break;
             case 29:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28]);
                 break;
             case 30:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29]);
                 break;
             case 31:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
                                                                             args.Values[30]);
                 break;
             case 32:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9],
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
                                                                             args.Values[30], args.Values[31]);
                 break;
             case 33:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
                                                                             args.Values[30], args.Values[31], args.Values[32]);
                 break;
             case 34:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33]);
                 break;
             case 35:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34]);
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34]);
                 break;
             case 36:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35]); 
                 break;
             case 37:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36]); 
                 break;
             case 38:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37]); 
                 break;
             case 39:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38]); 
                 break;
             case 40:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39]); 
                 break;
             case 41:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40]); 
                 break;
             case 42:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41]); 
                 break;
             case 43:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42]); 
                 break;
             case 44:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43]); 
                 break;
             case 45:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44]); 
                 break;
             case 46:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45]); 
                 break;
             case 47:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46]); 
                 break;
             case 48:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], 
+                                                                            args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47]); 
                 break;
             case 49:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48]); 
                 break;
             case 50:
                 varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
-                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
-                                                                             args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49]); 
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49]); 
                 break;
+            case 51:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50]); 
+                break;
+            case 52:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51]); 
+                break;
+            case 53:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52]); 
+                break;
+            case 54:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53]); 
+                break;
+            case 55:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54]); 
+                break;
+            case 56:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55]); 
+                break;
+            case 57:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56]); 
+                break;
+            case 58:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57]); 
+                break;
+            case 59:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58]); 
+                break;
+            case 60:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59]); 
+               break;
+            case 61:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19],
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                                                                                    args.Values[60]); 
+                break;
+            case 62:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61]); 
+                break;
+            case 63:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62]); 
+                break;
+            case 64:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63]); 
+                break;
+            case 65:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39],
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64]); 
+                break;
+            case 66:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65]); 
+                break;
+            case 67:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66]); 
+                break;
+            case 68:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67]); 
+                break;
+            case 69:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68]); 
+                break;
+            case 70:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39],
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69]); 
+               break;    
+            case 71:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70]); 
+                break;
+            case 72:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71]); 
+                break;
+            case 73:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72]); 
+                break;
+            case 74:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73]); 
+                break;
+            case 75:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74]); 
+                break;
+            case 76:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75]); 
+                break;
+            case 77:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76]); 
+                break;
+            case 78:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77]); 
+                break;
+            case 79:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78]); 
+                break;
+            case 80:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79]); 
+               break;                
+            case 81:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80]); 
+                break;
+            case 82:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81]); 
+                break;
+            case 83:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82]); 
+                break;
+            case 84:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83]); 
+                break;
+            case 85:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84]); 
+                break;
+            case 86:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85]); 
+                break;
+            case 87:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86]); 
+                break;
+            case 88:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87]); 
+                break;
+            case 89:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88]); 
+                break;
+            case 90:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89]); 
+               break;  
+            case 91:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90]); 
+                break;
+            case 92:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91]); 
+                break;
+            case 93:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92]); 
+                break;
+            case 94:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93]); 
+                break;
+            case 95:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94]); 
+                break;
+            case 96:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95]); 
+                break;
+            case 97:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96]); 
+                break;
+            case 98:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97]); 
+                break;
+            case 99:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98]); 
+                break;
+            case 100:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99]); 
+               break;                              
+            case 101:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100]); 
+                break;
+            case 102:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101]); 
+                break;
+            case 103:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102]); 
+                break;
+            case 104:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103]); 
+                break;
+            case 105:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104]); 
+                break;
+            case 106:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105]); 
+                break;
+            case 107:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106]); 
+                break;
+            case 108:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107]); 
+                break;
+            case 109:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108]); 
+                break;
+            case 110:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109]); 
+               break;   
+            case 111:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110]); 
+                break;
+            case 112:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111]); 
+                break;
+            case 113:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112]); 
+                break;
+            case 114:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113]); 
+                break;
+            case 115:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114]); 
+                break;
+            case 116:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115]); 
+                break;
+            case 117:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116]); 
+                break;
+            case 118:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117]); 
+                break;
+            case 119:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118]); 
+                break;
+            case 120:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119]); 
+               break;
+            case 121:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120]); 
+                break;
+            case 122:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121]); 
+                break;
+            case 123:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121], args.Values[122]); 
+                break;
+            case 124:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121], args.Values[122], args.Values[123]); 
+                break;
+            case 125:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121], args.Values[122], args.Values[123], args.Values[124]); 
+                break;
+            case 126:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121], args.Values[122], args.Values[123], args.Values[124], args.Values[125]); 
+                break;
+            case 127:
+                varResult = CALL_ENTRYPOINT(function->GetScriptContext()->GetThreadContext(),
+                    entryPoint, (JavascriptFunction*)function, args.Info, args.Values[0], args.Values[1], args.Values[2], args.Values[3], args.Values[4], args.Values[5], args.Values[6], args.Values[7], args.Values[8], args.Values[9], 
+                                                                            args.Values[10], args.Values[11], args.Values[12], args.Values[13], args.Values[14], args.Values[15], args.Values[16], args.Values[17], args.Values[18], args.Values[19], 
+                                                                            args.Values[20], args.Values[21], args.Values[22], args.Values[23], args.Values[24], args.Values[25], args.Values[26], args.Values[27], args.Values[28], args.Values[29], 
+                                                                            args.Values[30], args.Values[31], args.Values[32], args.Values[33], args.Values[34], args.Values[35], args.Values[36], args.Values[37], args.Values[38], args.Values[39], 
+                                                                            args.Values[40], args.Values[41], args.Values[42], args.Values[43], args.Values[44], args.Values[45], args.Values[46], args.Values[47], args.Values[48], args.Values[49], 
+                                                                            args.Values[50], args.Values[51], args.Values[52], args.Values[53], args.Values[54], args.Values[55], args.Values[56], args.Values[57], args.Values[58], args.Values[59],
+                                                                            args.Values[60], args.Values[61], args.Values[62], args.Values[63], args.Values[64], args.Values[65], args.Values[66], args.Values[67], args.Values[68], args.Values[69],
+                                                                            args.Values[70], args.Values[71], args.Values[72], args.Values[73], args.Values[74], args.Values[75], args.Values[76], args.Values[77], args.Values[78], args.Values[79],
+                                                                            args.Values[80], args.Values[81], args.Values[82], args.Values[83], args.Values[84], args.Values[85], args.Values[86], args.Values[87], args.Values[88], args.Values[89],
+                                                                            args.Values[90], args.Values[91], args.Values[92], args.Values[93], args.Values[94], args.Values[95], args.Values[96], args.Values[97], args.Values[98], args.Values[99],
+                                                                            args.Values[100], args.Values[101], args.Values[102], args.Values[103], args.Values[104], args.Values[105], args.Values[106], args.Values[107], args.Values[108], args.Values[109],
+                                                                            args.Values[110], args.Values[111], args.Values[112], args.Values[113], args.Values[114], args.Values[115], args.Values[116], args.Values[117], args.Values[118], args.Values[119],
+                                                                            args.Values[120], args.Values[121], args.Values[122], args.Values[123], args.Values[124], args.Values[125], args.Values[126]); 
+               break;                                           
             default:
                 AssertMsg(false, "CallFunction call with unsupported number of arguments");
         }
-//        varResult = arm64_CallFunction((JavascriptFunction*)function, args.Info, args.Values, entryPoint);
-
         return varResult;
     }
 #else
