@@ -61,6 +61,7 @@ using v8::DontDelete;
 using v8::EscapableHandleScope;
 using v8::Exception;
 using v8::External;
+using v8::FunctionCallback;
 using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
@@ -84,6 +85,11 @@ using v8::Uint32;
 using v8::Undefined;
 using v8::Value;
 
+#ifdef OPENSSL_NO_OCB
+# define IS_OCB_MODE(mode) false
+#else
+# define IS_OCB_MODE(mode) ((mode) == EVP_CIPH_OCB_MODE)
+#endif
 
 struct StackOfX509Deleter {
   void operator()(STACK_OF(X509)* p) const { sk_X509_pop_free(p, X509_free); }
@@ -2544,7 +2550,7 @@ int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx) {
 static bool IsSupportedAuthenticatedMode(int mode) {
   return mode == EVP_CIPH_CCM_MODE ||
          mode == EVP_CIPH_GCM_MODE ||
-         mode == EVP_CIPH_OCB_MODE;
+         IS_OCB_MODE(mode);
 }
 
 void CipherBase::Initialize(Environment* env, Local<Object> target) {
@@ -2769,7 +2775,7 @@ bool CipherBase::InitAuthenticated(const char* cipher_type, int iv_len,
   }
 
   const int mode = EVP_CIPHER_CTX_mode(ctx_.get());
-  if (mode == EVP_CIPH_CCM_MODE || mode == EVP_CIPH_OCB_MODE) {
+  if (mode == EVP_CIPH_CCM_MODE || IS_OCB_MODE(mode)) {
     if (auth_tag_len == kNoAuthTagLength) {
       char msg[128];
       snprintf(msg, sizeof(msg), "authTagLength required for %s", cipher_type);
@@ -2885,7 +2891,7 @@ void CipherBase::SetAuthTag(const FunctionCallbackInfo<Value>& args) {
   } else {
     // At this point, the tag length is already known and must match the
     // length of the given authentication tag.
-    CHECK(mode == EVP_CIPH_CCM_MODE || mode == EVP_CIPH_OCB_MODE);
+    CHECK(mode == EVP_CIPH_CCM_MODE || IS_OCB_MODE(mode));
     CHECK_NE(cipher->auth_tag_len_, kNoAuthTagLength);
     is_valid = cipher->auth_tag_len_ == tag_len;
   }
@@ -3918,67 +3924,44 @@ void PublicKeyCipher::Cipher(const FunctionCallbackInfo<Value>& args) {
 
 
 void DiffieHellman::Initialize(Environment* env, Local<Object> target) {
-  Local<FunctionTemplate> t = env->NewFunctionTemplate(New);
+  auto make = [&] (Local<String> name, FunctionCallback callback) {
+    Local<FunctionTemplate> t = env->NewFunctionTemplate(callback);
 
-  const PropertyAttribute attributes =
-      static_cast<PropertyAttribute>(v8::ReadOnly | v8::DontDelete);
+    const PropertyAttribute attributes =
+        static_cast<PropertyAttribute>(v8::ReadOnly | v8::DontDelete);
 
-  t->InstanceTemplate()->SetInternalFieldCount(1);
+    t->InstanceTemplate()->SetInternalFieldCount(1);
 
-  env->SetProtoMethod(t, "generateKeys", GenerateKeys);
-  env->SetProtoMethod(t, "computeSecret", ComputeSecret);
-  env->SetProtoMethodNoSideEffect(t, "getPrime", GetPrime);
-  env->SetProtoMethodNoSideEffect(t, "getGenerator", GetGenerator);
-  env->SetProtoMethodNoSideEffect(t, "getPublicKey", GetPublicKey);
-  env->SetProtoMethodNoSideEffect(t, "getPrivateKey", GetPrivateKey);
-  env->SetProtoMethod(t, "setPublicKey", SetPublicKey);
-  env->SetProtoMethod(t, "setPrivateKey", SetPrivateKey);
+    env->SetProtoMethod(t, "generateKeys", GenerateKeys);
+    env->SetProtoMethod(t, "computeSecret", ComputeSecret);
+    env->SetProtoMethodNoSideEffect(t, "getPrime", GetPrime);
+    env->SetProtoMethodNoSideEffect(t, "getGenerator", GetGenerator);
+    env->SetProtoMethodNoSideEffect(t, "getPublicKey", GetPublicKey);
+    env->SetProtoMethodNoSideEffect(t, "getPrivateKey", GetPrivateKey);
+    env->SetProtoMethod(t, "setPublicKey", SetPublicKey);
+    env->SetProtoMethod(t, "setPrivateKey", SetPrivateKey);
 
-  Local<FunctionTemplate> verify_error_getter_templ =
-      FunctionTemplate::New(env->isolate(),
-                            DiffieHellman::VerifyErrorGetter,
-                            env->as_external(),
-                            Signature::New(env->isolate(), t),
-                            /* length */ 0,
-                            ConstructorBehavior::kThrow,
-                            SideEffectType::kHasNoSideEffect);
+    Local<FunctionTemplate> verify_error_getter_templ =
+        FunctionTemplate::New(env->isolate(),
+                              DiffieHellman::VerifyErrorGetter,
+                              env->as_external(),
+                              Signature::New(env->isolate(), t),
+                              /* length */ 0,
+                              ConstructorBehavior::kThrow,
+                              SideEffectType::kHasNoSideEffect);
 
-  t->InstanceTemplate()->SetAccessorProperty(
-      env->verify_error_string(),
-      verify_error_getter_templ,
-      Local<FunctionTemplate>(),
-      attributes);
+    t->InstanceTemplate()->SetAccessorProperty(
+        env->verify_error_string(),
+        verify_error_getter_templ,
+        Local<FunctionTemplate>(),
+        attributes);
 
-  target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellman"),
-              t->GetFunction(env->context()).ToLocalChecked());
+    target->Set(name, t->GetFunction(env->context()).ToLocalChecked());
+  };
 
-  Local<FunctionTemplate> t2 = env->NewFunctionTemplate(DiffieHellmanGroup);
-  t2->InstanceTemplate()->SetInternalFieldCount(1);
-
-  env->SetProtoMethod(t2, "generateKeys", GenerateKeys);
-  env->SetProtoMethod(t2, "computeSecret", ComputeSecret);
-  env->SetProtoMethodNoSideEffect(t2, "getPrime", GetPrime);
-  env->SetProtoMethodNoSideEffect(t2, "getGenerator", GetGenerator);
-  env->SetProtoMethodNoSideEffect(t2, "getPublicKey", GetPublicKey);
-  env->SetProtoMethodNoSideEffect(t2, "getPrivateKey", GetPrivateKey);
-
-  Local<FunctionTemplate> verify_error_getter_templ2 =
-      FunctionTemplate::New(env->isolate(),
-                            DiffieHellman::VerifyErrorGetter,
-                            env->as_external(),
-                            Signature::New(env->isolate(), t2),
-                            /* length */ 0,
-                            ConstructorBehavior::kThrow,
-                            SideEffectType::kHasNoSideEffect);
-
-  t2->InstanceTemplate()->SetAccessorProperty(
-      env->verify_error_string(),
-      verify_error_getter_templ2,
-      Local<FunctionTemplate>(),
-      attributes);
-
-  target->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellmanGroup"),
-              t2->GetFunction(env->context()).ToLocalChecked());
+  make(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellman"), New);
+  make(FIXED_ONE_BYTE_STRING(env->isolate(), "DiffieHellmanGroup"),
+       DiffieHellmanGroup);
 }
 
 
@@ -4100,10 +4083,7 @@ void DiffieHellman::GenerateKeys(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-
-  if (!diffieHellman->initialised_) {
-    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
-  }
+  CHECK(diffieHellman->initialised_);
 
   if (!DH_generate_key(diffieHellman->dh_.get())) {
     return ThrowCryptoError(env, ERR_get_error(), "Key generation failed");
@@ -4125,7 +4105,7 @@ void DiffieHellman::GetField(const FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  if (!dh->initialised_) return env->ThrowError("Not initialized");
+  CHECK(dh->initialised_);
 
   const BIGNUM* num = get_field(dh->dh_.get());
   if (num == nullptr) return env->ThrowError(err_if_null);
@@ -4177,10 +4157,7 @@ void DiffieHellman::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-
-  if (!diffieHellman->initialised_) {
-    return ThrowCryptoError(env, ERR_get_error(), "Not initialized");
-  }
+  CHECK(diffieHellman->initialised_);
 
   ClearErrorOnReturn clear_error_on_return;
 
@@ -4248,7 +4225,7 @@ void DiffieHellman::SetKey(const v8::FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  if (!dh->initialised_) return env->ThrowError("Not initialized");
+  CHECK(dh->initialised_);
 
   char errmsg[64];
 
@@ -4294,10 +4271,7 @@ void DiffieHellman::VerifyErrorGetter(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-
-  if (!diffieHellman->initialised_)
-    return ThrowCryptoError(diffieHellman->env(), ERR_get_error(),
-                            "Not initialized");
+  CHECK(diffieHellman->initialised_);
 
   args.GetReturnValue().Set(diffieHellman->verifyError_);
 }
@@ -4337,7 +4311,7 @@ void ECDH::New(const FunctionCallbackInfo<Value>& args) {
   MarkPopErrorOnReturn mark_pop_error_on_return;
 
   // TODO(indutny): Support raw curves?
-  THROW_AND_RETURN_IF_NOT_STRING(env, args[0], "ECDH curve name");
+  CHECK(args[0]->IsString());
   node::Utf8Value curve(env->isolate(), args[0]);
 
   int nid = OBJ_sn2nid(*curve);
