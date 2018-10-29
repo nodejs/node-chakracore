@@ -1564,14 +1564,6 @@ static void GetBinding(const FunctionCallbackInfo<Value>& args) {
   Local<Object> exports;
   if (mod != nullptr) {
     exports = InitModule(env, mod, module);
-  } else if (!strcmp(*module_v, "constants")) {
-    exports = Object::New(env->isolate());
-    CHECK(exports->SetPrototype(env->context(),
-                                Null(env->isolate())).FromJust());
-    DefineConstants(env->isolate(), exports);
-  } else if (!strcmp(*module_v, "natives")) {
-    exports = Object::New(env->isolate());
-    DefineJavaScript(env, exports);
   } else {
     return ThrowIfNoSuchModule(env, *module_v);
   }
@@ -1591,6 +1583,14 @@ static void GetInternalBinding(const FunctionCallbackInfo<Value>& args) {
   node_module* mod = get_internal_module(*module_v);
   if (mod != nullptr) {
     exports = InitModule(env, mod, module);
+  } else if (!strcmp(*module_v, "constants")) {
+    exports = Object::New(env->isolate());
+    CHECK(exports->SetPrototype(env->context(),
+                                Null(env->isolate())).FromJust());
+    DefineConstants(env->isolate(), exports);
+  } else if (!strcmp(*module_v, "natives")) {
+    exports = Object::New(env->isolate());
+    DefineJavaScript(env, exports);
   } else if (!strcmp(*module_v, "code_cache")) {
     // internalBinding('code_cache')
     exports = Object::New(env->isolate());
@@ -2851,6 +2851,11 @@ Environment* CreateEnvironment(IsolateData* isolate_data,
 void FreeEnvironment(Environment* env) {
   env->RunCleanup();
   delete env;
+}
+
+
+Environment* GetCurrentEnvironment(Local<Context> context) {
+  return Environment::GetCurrent(context);
 }
 
 

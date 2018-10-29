@@ -116,9 +116,9 @@ static const char* const root_certs[] = {
 
 static const char system_cert_path[] = NODE_OPENSSL_SYSTEM_CERT_PATH;
 
-static std::string extra_root_certs_file;  // NOLINT(runtime/string)
-
 static X509_STORE* root_cert_store;
+
+static bool extra_root_certs_loaded = false;
 
 // Just to generate static methods
 template void SSLWrap<TLSWrap>::AddMethods(Environment* env,
@@ -832,11 +832,6 @@ void SecureContext::AddCRL(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void UseExtraCaCerts(const std::string& file) {
-  extra_root_certs_file = file;
-}
-
-
 static unsigned long AddCertsFromFile(  // NOLINT(runtime/int)
     X509_STORE* store,
     const char* file) {
@@ -863,29 +858,43 @@ static unsigned long AddCertsFromFile(  // NOLINT(runtime/int)
   return err;
 }
 
+
+void UseExtraCaCerts(const std::string& file) {
+  ClearErrorOnReturn clear_error_on_return;
+
+  if (root_cert_store == nullptr) {
+    root_cert_store = NewRootCertStore();
+
+    if (!file.empty()) {
+      unsigned long err = AddCertsFromFile(  // NOLINT(runtime/int)
+                                           root_cert_store,
+                                           file.c_str());
+      if (err) {
+        fprintf(stderr,
+                "Warning: Ignoring extra certs from `%s`, load failed: %s\n",
+                file.c_str(),
+                ERR_error_string(err, nullptr));
+      } else {
+        extra_root_certs_loaded = true;
+      }
+    }
+  }
+}
+
+
+static void IsExtraRootCertsFileLoaded(
+    const FunctionCallbackInfo<Value>& args) {
+  return args.GetReturnValue().Set(extra_root_certs_loaded);
+}
+
+
 void SecureContext::AddRootCerts(const FunctionCallbackInfo<Value>& args) {
   SecureContext* sc;
   ASSIGN_OR_RETURN_UNWRAP(&sc, args.Holder());
   ClearErrorOnReturn clear_error_on_return;
 
-  if (!root_cert_store) {
+  if (root_cert_store == nullptr) {
     root_cert_store = NewRootCertStore();
-
-    if (!extra_root_certs_file.empty()) {
-      unsigned long err = AddCertsFromFile(  // NOLINT(runtime/int)
-                                           root_cert_store,
-                                           extra_root_certs_file.c_str());
-      if (err) {
-        // We do not call back into JS after this line anyway, so ignoring
-        // the return value of ProcessEmitWarning does not affect how a
-        // possible exception would be propagated.
-        ProcessEmitWarning(sc->env(),
-                           "Ignoring extra certs from `%s`, "
-                           "load failed: %s\n",
-                           extra_root_certs_file.c_str(),
-                           ERR_error_string(err, nullptr));
-      }
-    }
   }
 
   // Increment reference count so global store is not deleted along with CTX.
@@ -3553,22 +3562,20 @@ static MallocedBuffer<unsigned char> Node_SignFinal(EVPMDPointer&& mdctx,
   return MallocedBuffer<unsigned char>();
 }
 
-std::pair<SignBase::Error, MallocedBuffer<unsigned char>> Sign::SignFinal(
+Sign::SignResult Sign::SignFinal(
     const char* key_pem,
     int key_pem_len,
     const char* passphrase,
     int padding,
     int salt_len) {
-  MallocedBuffer<unsigned char> buffer;
-
   if (!mdctx_)
-    return std::make_pair(kSignNotInitialised, std::move(buffer));
+    return SignResult(kSignNotInitialised);
 
   EVPMDPointer mdctx = std::move(mdctx_);
 
   BIOPointer bp(BIO_new_mem_buf(const_cast<char*>(key_pem), key_pem_len));
   if (!bp)
-    return std::make_pair(kSignPrivateKey, std::move(buffer));
+    return SignResult(kSignPrivateKey);
 
   EVPKeyPointer pkey(PEM_read_bio_PrivateKey(bp.get(),
                                              nullptr,
@@ -3579,7 +3586,7 @@ std::pair<SignBase::Error, MallocedBuffer<unsigned char>> Sign::SignFinal(
   // without `pkey` being set to nullptr;
   // cf. the test of `test_bad_rsa_privkey.pem` for an example.
   if (!pkey || 0 != ERR_peek_error())
-    return std::make_pair(kSignPrivateKey, std::move(buffer));
+    return SignResult(kSignPrivateKey);
 
 #ifdef NODE_FIPS_MODE
   /* Validate DSA2 parameters from FIPS 186-4 */
@@ -3603,9 +3610,10 @@ std::pair<SignBase::Error, MallocedBuffer<unsigned char>> Sign::SignFinal(
   }
 #endif  // NODE_FIPS_MODE
 
-  buffer = Node_SignFinal(std::move(mdctx), pkey, padding, salt_len);
+  MallocedBuffer<unsigned char> buffer =
+      Node_SignFinal(std::move(mdctx), pkey, padding, salt_len);
   Error error = buffer.is_empty() ? kSignPrivateKey : kSignOk;
-  return std::make_pair(error, std::move(buffer));
+  return SignResult(error, std::move(buffer));
 }
 
 
@@ -3630,18 +3638,18 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
 
   ClearErrorOnReturn clear_error_on_return;
 
-  std::pair<Error, MallocedBuffer<unsigned char>> ret = sign->SignFinal(
+  SignResult ret = sign->SignFinal(
       buf,
       buf_len,
       len >= 2 && !args[1]->IsNull() ? *passphrase : nullptr,
       padding,
       salt_len);
 
-  if (std::get<Error>(ret) != kSignOk)
-    return sign->CheckThrow(std::get<Error>(ret));
+  if (ret.error != kSignOk)
+    return sign->CheckThrow(ret.error);
 
   MallocedBuffer<unsigned char> sig =
-      std::move(std::get<MallocedBuffer<unsigned char>>(ret));
+      std::move(ret.signature);
 
   Local<Object> rc =
       Buffer::New(env, reinterpret_cast<char*>(sig.release()), sig.size)
@@ -5624,6 +5632,7 @@ void SetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
 }
 #endif /* NODE_FIPS_MODE */
 
+
 void Initialize(Local<Object> target,
                 Local<Value> unused,
                 Local<Context> context,
@@ -5644,6 +5653,9 @@ void Initialize(Local<Object> target,
   env->SetMethodNoSideEffect(target, "certVerifySpkac", VerifySpkac);
   env->SetMethodNoSideEffect(target, "certExportPublicKey", ExportPublicKey);
   env->SetMethodNoSideEffect(target, "certExportChallenge", ExportChallenge);
+  // Exposed for testing purposes only.
+  env->SetMethodNoSideEffect(target, "isExtraRootCertsFileLoaded",
+                             IsExtraRootCertsFileLoaded);
 
   env->SetMethodNoSideEffect(target, "ECDHConvertKey", ConvertKey);
 #ifndef OPENSSL_NO_ENGINE
