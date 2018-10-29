@@ -426,7 +426,7 @@ void FSReqCallback::Reject(Local<Value> reject) {
 }
 
 void FSReqCallback::ResolveStat(const uv_stat_t* stat) {
-  Resolve(node::FillGlobalStatsArray(env(), stat, use_bigint()));
+  Resolve(FillGlobalStatsArray(env(), use_bigint(), stat));
 }
 
 void FSReqCallback::Resolve(Local<Value> value) {
@@ -960,8 +960,8 @@ static void Stat(const FunctionCallbackInfo<Value>& args) {
       return;  // error info is in ctx
     }
 
-    Local<Value> arr = node::FillGlobalStatsArray(env,
-        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr), use_bigint);
+    Local<Value> arr = FillGlobalStatsArray(env, use_bigint,
+        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr));
     args.GetReturnValue().Set(arr);
   }
 }
@@ -991,8 +991,8 @@ static void LStat(const FunctionCallbackInfo<Value>& args) {
       return;  // error info is in ctx
     }
 
-    Local<Value> arr = node::FillGlobalStatsArray(env,
-        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr), use_bigint);
+    Local<Value> arr = FillGlobalStatsArray(env, use_bigint,
+        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr));
     args.GetReturnValue().Set(arr);
   }
 }
@@ -1021,8 +1021,8 @@ static void FStat(const FunctionCallbackInfo<Value>& args) {
       return;  // error info is in ctx
     }
 
-    Local<Value> arr = node::FillGlobalStatsArray(env,
-        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr), use_bigint);
+    Local<Value> arr = FillGlobalStatsArray(env, use_bigint,
+        static_cast<const uv_stat_t*>(req_wrap_sync.req.ptr));
     args.GetReturnValue().Set(arr);
   }
 }
@@ -2258,8 +2258,8 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "mkdtemp", Mkdtemp);
 
   target->Set(context,
-              FIXED_ONE_BYTE_STRING(isolate, "kFsStatsFieldsLength"),
-              Integer::New(isolate, env->kFsStatsFieldsLength))
+              FIXED_ONE_BYTE_STRING(isolate, "kFsStatsFieldsNumber"),
+              Integer::New(isolate, kFsStatsFieldsNumber))
         .FromJust();
 
   target->Set(context,

@@ -394,6 +394,10 @@ static struct {
 #endif  //  !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
 } v8_platform;
 
+tracing::AgentWriterHandle* GetTracingAgentWriter() {
+  return v8_platform.GetTracingAgentWriter();
+}
+
 #ifdef __POSIX__
 static const unsigned kMaxSignal = 32;
 #endif
@@ -2857,8 +2861,7 @@ Environment* CreateEnvironment(IsolateData* isolate_data,
   // options than the global parse call.
   std::vector<std::string> args(argv, argv + argc);
   std::vector<std::string> exec_args(exec_argv, exec_argv + exec_argc);
-  Environment* env = new Environment(isolate_data, context,
-                                     v8_platform.GetTracingAgentWriter());
+  Environment* env = new Environment(isolate_data, context);
   env->Start(args, exec_args, v8_is_profiling);
   return env;
 }
@@ -2973,7 +2976,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
 
-  Environment env(isolate_data, context, v8_platform.GetTracingAgentWriter());
+  Environment env(isolate_data, context);
   env.Start(args, exec_args, v8_is_profiling);
 
   const char* path = args.size() > 1 ? args[1].c_str() : nullptr;
