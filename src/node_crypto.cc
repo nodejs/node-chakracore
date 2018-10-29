@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <vector>
 
 static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
@@ -3523,46 +3524,51 @@ void Sign::SignUpdate(const FunctionCallbackInfo<Value>& args) {
   sign->CheckThrow(err);
 }
 
-static int Node_SignFinal(EVPMDPointer&& mdctx, unsigned char* md,
-                          unsigned int* sig_len,
-                          const EVPKeyPointer& pkey, int padding,
-                          int pss_salt_len) {
+static MallocedBuffer<unsigned char> Node_SignFinal(EVPMDPointer&& mdctx,
+                                                    const EVPKeyPointer& pkey,
+                                                    int padding,
+                                                    int pss_salt_len) {
   unsigned char m[EVP_MAX_MD_SIZE];
   unsigned int m_len;
 
-  *sig_len = 0;
   if (!EVP_DigestFinal_ex(mdctx.get(), m, &m_len))
-    return 0;
+    return MallocedBuffer<unsigned char>();
 
-  size_t sltmp = static_cast<size_t>(EVP_PKEY_size(pkey.get()));
+  int signed_sig_len = EVP_PKEY_size(pkey.get());
+  CHECK_GE(signed_sig_len, 0);
+  size_t sig_len = static_cast<size_t>(signed_sig_len);
+  MallocedBuffer<unsigned char> sig(sig_len);
+
   EVPKeyCtxPointer pkctx(EVP_PKEY_CTX_new(pkey.get(), nullptr));
   if (pkctx &&
       EVP_PKEY_sign_init(pkctx.get()) > 0 &&
       ApplyRSAOptions(pkey, pkctx.get(), padding, pss_salt_len) &&
       EVP_PKEY_CTX_set_signature_md(pkctx.get(),
                                     EVP_MD_CTX_md(mdctx.get())) > 0 &&
-      EVP_PKEY_sign(pkctx.get(), md, &sltmp, m, m_len) > 0) {
-    *sig_len = sltmp;
-    return 1;
+      EVP_PKEY_sign(pkctx.get(), sig.data, &sig_len, m, m_len) > 0) {
+    sig.Truncate(sig_len);
+    return sig;
   }
-  return 0;
+
+  return MallocedBuffer<unsigned char>();
 }
 
-SignBase::Error Sign::SignFinal(const char* key_pem,
-                                int key_pem_len,
-                                const char* passphrase,
-                                unsigned char* sig,
-                                unsigned int* sig_len,
-                                int padding,
-                                int salt_len) {
+std::pair<SignBase::Error, MallocedBuffer<unsigned char>> Sign::SignFinal(
+    const char* key_pem,
+    int key_pem_len,
+    const char* passphrase,
+    int padding,
+    int salt_len) {
+  MallocedBuffer<unsigned char> buffer;
+
   if (!mdctx_)
-    return kSignNotInitialised;
+    return std::make_pair(kSignNotInitialised, std::move(buffer));
 
   EVPMDPointer mdctx = std::move(mdctx_);
 
   BIOPointer bp(BIO_new_mem_buf(const_cast<char*>(key_pem), key_pem_len));
   if (!bp)
-    return kSignPrivateKey;
+    return std::make_pair(kSignPrivateKey, std::move(buffer));
 
   EVPKeyPointer pkey(PEM_read_bio_PrivateKey(bp.get(),
                                              nullptr,
@@ -3573,7 +3579,7 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   // without `pkey` being set to nullptr;
   // cf. the test of `test_bad_rsa_privkey.pem` for an example.
   if (!pkey || 0 != ERR_peek_error())
-    return kSignPrivateKey;
+    return std::make_pair(kSignPrivateKey, std::move(buffer));
 
 #ifdef NODE_FIPS_MODE
   /* Validate DSA2 parameters from FIPS 186-4 */
@@ -3597,10 +3603,9 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   }
 #endif  // NODE_FIPS_MODE
 
-  if (Node_SignFinal(std::move(mdctx), sig, sig_len, pkey, padding, salt_len))
-    return kSignOk;
-  else
-    return kSignPrivateKey;
+  buffer = Node_SignFinal(std::move(mdctx), pkey, padding, salt_len);
+  Error error = buffer.is_empty() ? kSignPrivateKey : kSignOk;
+  return std::make_pair(error, std::move(buffer));
 }
 
 
@@ -3624,22 +3629,22 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
   int salt_len = args[3].As<Int32>()->Value();
 
   ClearErrorOnReturn clear_error_on_return;
-  unsigned char md_value[8192];
-  unsigned int md_len = sizeof(md_value);
 
-  Error err = sign->SignFinal(
+  std::pair<Error, MallocedBuffer<unsigned char>> ret = sign->SignFinal(
       buf,
       buf_len,
       len >= 2 && !args[1]->IsNull() ? *passphrase : nullptr,
-      md_value,
-      &md_len,
       padding,
       salt_len);
-  if (err != kSignOk)
-    return sign->CheckThrow(err);
+
+  if (std::get<Error>(ret) != kSignOk)
+    return sign->CheckThrow(std::get<Error>(ret));
+
+  MallocedBuffer<unsigned char> sig =
+      std::move(std::get<MallocedBuffer<unsigned char>>(ret));
 
   Local<Object> rc =
-      Buffer::Copy(env, reinterpret_cast<char*>(md_value), md_len)
+      Buffer::New(env, reinterpret_cast<char*>(sig.release()), sig.size)
       .ToLocalChecked();
   args.GetReturnValue().Set(rc);
 }
@@ -3969,11 +3974,7 @@ bool DiffieHellman::Init(int primeLength, int g) {
   dh_.reset(DH_new());
   if (!DH_generate_parameters_ex(dh_.get(), primeLength, g, 0))
     return false;
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -3988,11 +3989,7 @@ bool DiffieHellman::Init(const char* p, int p_len, int g) {
     BN_free(bn_g);
     return false;
   }
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -4005,11 +4002,7 @@ bool DiffieHellman::Init(const char* p, int p_len, const char* g, int g_len) {
     BN_free(bn_g);
     return false;
   }
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -4083,7 +4076,6 @@ void DiffieHellman::GenerateKeys(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   if (!DH_generate_key(diffieHellman->dh_.get())) {
     return ThrowCryptoError(env, ERR_get_error(), "Key generation failed");
@@ -4105,7 +4097,6 @@ void DiffieHellman::GetField(const FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  CHECK(dh->initialised_);
 
   const BIGNUM* num = get_field(dh->dh_.get());
   if (num == nullptr) return env->ThrowError(err_if_null);
@@ -4157,7 +4148,6 @@ void DiffieHellman::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   ClearErrorOnReturn clear_error_on_return;
 
@@ -4225,7 +4215,6 @@ void DiffieHellman::SetKey(const v8::FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  CHECK(dh->initialised_);
 
   char errmsg[64];
 
@@ -4271,7 +4260,6 @@ void DiffieHellman::VerifyErrorGetter(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   args.GetReturnValue().Set(diffieHellman->verifyError_);
 }
