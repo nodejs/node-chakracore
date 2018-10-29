@@ -114,6 +114,7 @@ test-trace-events-v8 : SKIP
 test-trace-events-vm : SKIP
 test-trace-events-worker-metadata : SKIP
 test-tracing-no-crash : SKIP
+test-trace-events-environment : SKIP
 
 # These tests are disabled for chakra engine because they depend
 # on v8-option --abort-on-uncaught-exception

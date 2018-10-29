@@ -15,6 +15,7 @@
    at *
    at *
    at *
+   at *
 (node:*) Error: This was rejected
    at * (*test*message*unhandled_promise_trace_warnings.js:*)
    at *
@@ -34,6 +35,7 @@
    at *
    at *
    at *
+   at *
 (node:*) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 1)
    at *
    at handledRejection (internal/process/promises.js:*)
@@ -41,6 +43,4 @@
    at Promise.prototype.then (native code:0:0)
    at Promise.prototype.catch (native code:0:0)
    at Anonymous function (*test*message*unhandled_promise_trace_warnings.js:*)
-   at *
-   at *
-   at *
+   at processImmediate (timers.js:*)
