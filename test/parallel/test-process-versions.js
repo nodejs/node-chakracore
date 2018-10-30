@@ -38,7 +38,7 @@ assert(common.engineSpecificMessage({
 assert(/^\d+$/.test(process.versions.modules));
 
 if (common.hasCrypto) {
-  assert(/^\d+\.\d+\.\d+[a-z]?$/.test(process.versions.openssl));
+  assert(/^\d+\.\d+\.\d+[a-z]?(-fips)?$/.test(process.versions.openssl));
 }
 
 for (let i = 0; i < expected_keys.length; i++) {
