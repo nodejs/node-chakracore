@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include <vector>
 
 static const int X509_NAME_FLAGS = ASN1_STRFLGS_ESC_CTRL
@@ -115,9 +116,9 @@ static const char* const root_certs[] = {
 
 static const char system_cert_path[] = NODE_OPENSSL_SYSTEM_CERT_PATH;
 
-static std::string extra_root_certs_file;  // NOLINT(runtime/string)
-
 static X509_STORE* root_cert_store;
+
+static bool extra_root_certs_loaded = false;
 
 // Just to generate static methods
 template void SSLWrap<TLSWrap>::AddMethods(Environment* env,
@@ -354,16 +355,16 @@ void SecureContext::Initialize(Environment* env, Local<Object> target) {
   env->SetProtoMethodNoSideEffect(t, "getCertificate", GetCertificate<true>);
   env->SetProtoMethodNoSideEffect(t, "getIssuer", GetCertificate<false>);
 
-  t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyReturnIndex"),
-         Integer::NewFromUnsigned(env->isolate(), kTicketKeyReturnIndex));
-  t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyHMACIndex"),
-         Integer::NewFromUnsigned(env->isolate(), kTicketKeyHMACIndex));
-  t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyAESIndex"),
-         Integer::NewFromUnsigned(env->isolate(), kTicketKeyAESIndex));
-  t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyNameIndex"),
-         Integer::NewFromUnsigned(env->isolate(), kTicketKeyNameIndex));
-  t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), "kTicketKeyIVIndex"),
-         Integer::NewFromUnsigned(env->isolate(), kTicketKeyIVIndex));
+#define SET_INTEGER_CONSTANTS(name, value)                                     \
+    t->Set(FIXED_ONE_BYTE_STRING(env->isolate(), name),                        \
+           Integer::NewFromUnsigned(env->isolate(), value));
+  SET_INTEGER_CONSTANTS("kTicketKeyReturnIndex", kTicketKeyReturnIndex);
+  SET_INTEGER_CONSTANTS("kTicketKeyHMACIndex", kTicketKeyHMACIndex);
+  SET_INTEGER_CONSTANTS("kTicketKeyAESIndex", kTicketKeyAESIndex);
+  SET_INTEGER_CONSTANTS("kTicketKeyNameIndex", kTicketKeyNameIndex);
+  SET_INTEGER_CONSTANTS("kTicketKeyIVIndex", kTicketKeyIVIndex);
+
+#undef SET_INTEGER_CONSTANTS
 
   Local<FunctionTemplate> ctx_getter_templ =
       FunctionTemplate::New(env->isolate(),
@@ -831,11 +832,6 @@ void SecureContext::AddCRL(const FunctionCallbackInfo<Value>& args) {
 }
 
 
-void UseExtraCaCerts(const std::string& file) {
-  extra_root_certs_file = file;
-}
-
-
 static unsigned long AddCertsFromFile(  // NOLINT(runtime/int)
     X509_STORE* store,
     const char* file) {
@@ -862,29 +858,43 @@ static unsigned long AddCertsFromFile(  // NOLINT(runtime/int)
   return err;
 }
 
+
+void UseExtraCaCerts(const std::string& file) {
+  ClearErrorOnReturn clear_error_on_return;
+
+  if (root_cert_store == nullptr) {
+    root_cert_store = NewRootCertStore();
+
+    if (!file.empty()) {
+      unsigned long err = AddCertsFromFile(  // NOLINT(runtime/int)
+                                           root_cert_store,
+                                           file.c_str());
+      if (err) {
+        fprintf(stderr,
+                "Warning: Ignoring extra certs from `%s`, load failed: %s\n",
+                file.c_str(),
+                ERR_error_string(err, nullptr));
+      } else {
+        extra_root_certs_loaded = true;
+      }
+    }
+  }
+}
+
+
+static void IsExtraRootCertsFileLoaded(
+    const FunctionCallbackInfo<Value>& args) {
+  return args.GetReturnValue().Set(extra_root_certs_loaded);
+}
+
+
 void SecureContext::AddRootCerts(const FunctionCallbackInfo<Value>& args) {
   SecureContext* sc;
   ASSIGN_OR_RETURN_UNWRAP(&sc, args.Holder());
   ClearErrorOnReturn clear_error_on_return;
 
-  if (!root_cert_store) {
+  if (root_cert_store == nullptr) {
     root_cert_store = NewRootCertStore();
-
-    if (!extra_root_certs_file.empty()) {
-      unsigned long err = AddCertsFromFile(  // NOLINT(runtime/int)
-                                           root_cert_store,
-                                           extra_root_certs_file.c_str());
-      if (err) {
-        // We do not call back into JS after this line anyway, so ignoring
-        // the return value of ProcessEmitWarning does not affect how a
-        // possible exception would be propagated.
-        ProcessEmitWarning(sc->env(),
-                           "Ignoring extra certs from `%s`, "
-                           "load failed: %s\n",
-                           extra_root_certs_file.c_str(),
-                           ERR_error_string(err, nullptr));
-      }
-    }
   }
 
   // Increment reference count so global store is not deleted along with CTX.
@@ -3523,46 +3533,49 @@ void Sign::SignUpdate(const FunctionCallbackInfo<Value>& args) {
   sign->CheckThrow(err);
 }
 
-static int Node_SignFinal(EVPMDPointer&& mdctx, unsigned char* md,
-                          unsigned int* sig_len,
-                          const EVPKeyPointer& pkey, int padding,
-                          int pss_salt_len) {
+static MallocedBuffer<unsigned char> Node_SignFinal(EVPMDPointer&& mdctx,
+                                                    const EVPKeyPointer& pkey,
+                                                    int padding,
+                                                    int pss_salt_len) {
   unsigned char m[EVP_MAX_MD_SIZE];
   unsigned int m_len;
 
-  *sig_len = 0;
   if (!EVP_DigestFinal_ex(mdctx.get(), m, &m_len))
-    return 0;
+    return MallocedBuffer<unsigned char>();
 
-  size_t sltmp = static_cast<size_t>(EVP_PKEY_size(pkey.get()));
+  int signed_sig_len = EVP_PKEY_size(pkey.get());
+  CHECK_GE(signed_sig_len, 0);
+  size_t sig_len = static_cast<size_t>(signed_sig_len);
+  MallocedBuffer<unsigned char> sig(sig_len);
+
   EVPKeyCtxPointer pkctx(EVP_PKEY_CTX_new(pkey.get(), nullptr));
   if (pkctx &&
       EVP_PKEY_sign_init(pkctx.get()) > 0 &&
       ApplyRSAOptions(pkey, pkctx.get(), padding, pss_salt_len) &&
       EVP_PKEY_CTX_set_signature_md(pkctx.get(),
                                     EVP_MD_CTX_md(mdctx.get())) > 0 &&
-      EVP_PKEY_sign(pkctx.get(), md, &sltmp, m, m_len) > 0) {
-    *sig_len = sltmp;
-    return 1;
+      EVP_PKEY_sign(pkctx.get(), sig.data, &sig_len, m, m_len) > 0) {
+    sig.Truncate(sig_len);
+    return sig;
   }
-  return 0;
+
+  return MallocedBuffer<unsigned char>();
 }
 
-SignBase::Error Sign::SignFinal(const char* key_pem,
-                                int key_pem_len,
-                                const char* passphrase,
-                                unsigned char* sig,
-                                unsigned int* sig_len,
-                                int padding,
-                                int salt_len) {
+Sign::SignResult Sign::SignFinal(
+    const char* key_pem,
+    int key_pem_len,
+    const char* passphrase,
+    int padding,
+    int salt_len) {
   if (!mdctx_)
-    return kSignNotInitialised;
+    return SignResult(kSignNotInitialised);
 
   EVPMDPointer mdctx = std::move(mdctx_);
 
   BIOPointer bp(BIO_new_mem_buf(const_cast<char*>(key_pem), key_pem_len));
   if (!bp)
-    return kSignPrivateKey;
+    return SignResult(kSignPrivateKey);
 
   EVPKeyPointer pkey(PEM_read_bio_PrivateKey(bp.get(),
                                              nullptr,
@@ -3573,7 +3586,7 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   // without `pkey` being set to nullptr;
   // cf. the test of `test_bad_rsa_privkey.pem` for an example.
   if (!pkey || 0 != ERR_peek_error())
-    return kSignPrivateKey;
+    return SignResult(kSignPrivateKey);
 
 #ifdef NODE_FIPS_MODE
   /* Validate DSA2 parameters from FIPS 186-4 */
@@ -3597,10 +3610,10 @@ SignBase::Error Sign::SignFinal(const char* key_pem,
   }
 #endif  // NODE_FIPS_MODE
 
-  if (Node_SignFinal(std::move(mdctx), sig, sig_len, pkey, padding, salt_len))
-    return kSignOk;
-  else
-    return kSignPrivateKey;
+  MallocedBuffer<unsigned char> buffer =
+      Node_SignFinal(std::move(mdctx), pkey, padding, salt_len);
+  Error error = buffer.is_empty() ? kSignPrivateKey : kSignOk;
+  return SignResult(error, std::move(buffer));
 }
 
 
@@ -3624,22 +3637,22 @@ void Sign::SignFinal(const FunctionCallbackInfo<Value>& args) {
   int salt_len = args[3].As<Int32>()->Value();
 
   ClearErrorOnReturn clear_error_on_return;
-  unsigned char md_value[8192];
-  unsigned int md_len = sizeof(md_value);
 
-  Error err = sign->SignFinal(
+  SignResult ret = sign->SignFinal(
       buf,
       buf_len,
       len >= 2 && !args[1]->IsNull() ? *passphrase : nullptr,
-      md_value,
-      &md_len,
       padding,
       salt_len);
-  if (err != kSignOk)
-    return sign->CheckThrow(err);
+
+  if (ret.error != kSignOk)
+    return sign->CheckThrow(ret.error);
+
+  MallocedBuffer<unsigned char> sig =
+      std::move(ret.signature);
 
   Local<Object> rc =
-      Buffer::Copy(env, reinterpret_cast<char*>(md_value), md_len)
+      Buffer::New(env, reinterpret_cast<char*>(sig.release()), sig.size)
       .ToLocalChecked();
   args.GetReturnValue().Set(rc);
 }
@@ -3969,11 +3982,7 @@ bool DiffieHellman::Init(int primeLength, int g) {
   dh_.reset(DH_new());
   if (!DH_generate_parameters_ex(dh_.get(), primeLength, g, 0))
     return false;
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -3988,11 +3997,7 @@ bool DiffieHellman::Init(const char* p, int p_len, int g) {
     BN_free(bn_g);
     return false;
   }
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -4005,11 +4010,7 @@ bool DiffieHellman::Init(const char* p, int p_len, const char* g, int g_len) {
     BN_free(bn_g);
     return false;
   }
-  bool result = VerifyContext();
-  if (!result)
-    return false;
-  initialised_ = true;
-  return true;
+  return VerifyContext();
 }
 
 
@@ -4083,7 +4084,6 @@ void DiffieHellman::GenerateKeys(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   if (!DH_generate_key(diffieHellman->dh_.get())) {
     return ThrowCryptoError(env, ERR_get_error(), "Key generation failed");
@@ -4105,7 +4105,6 @@ void DiffieHellman::GetField(const FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  CHECK(dh->initialised_);
 
   const BIGNUM* num = get_field(dh->dh_.get());
   if (num == nullptr) return env->ThrowError(err_if_null);
@@ -4157,7 +4156,6 @@ void DiffieHellman::ComputeSecret(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   ClearErrorOnReturn clear_error_on_return;
 
@@ -4225,7 +4223,6 @@ void DiffieHellman::SetKey(const v8::FunctionCallbackInfo<Value>& args,
 
   DiffieHellman* dh;
   ASSIGN_OR_RETURN_UNWRAP(&dh, args.Holder());
-  CHECK(dh->initialised_);
 
   char errmsg[64];
 
@@ -4271,7 +4268,6 @@ void DiffieHellman::VerifyErrorGetter(const FunctionCallbackInfo<Value>& args) {
 
   DiffieHellman* diffieHellman;
   ASSIGN_OR_RETURN_UNWRAP(&diffieHellman, args.Holder());
-  CHECK(diffieHellman->initialised_);
 
   args.GetReturnValue().Set(diffieHellman->verifyError_);
 }
@@ -5636,6 +5632,7 @@ void SetFipsCrypto(const FunctionCallbackInfo<Value>& args) {
 }
 #endif /* NODE_FIPS_MODE */
 
+
 void Initialize(Local<Object> target,
                 Local<Value> unused,
                 Local<Context> context,
@@ -5656,6 +5653,9 @@ void Initialize(Local<Object> target,
   env->SetMethodNoSideEffect(target, "certVerifySpkac", VerifySpkac);
   env->SetMethodNoSideEffect(target, "certExportPublicKey", ExportPublicKey);
   env->SetMethodNoSideEffect(target, "certExportChallenge", ExportChallenge);
+  // Exposed for testing purposes only.
+  env->SetMethodNoSideEffect(target, "isExtraRootCertsFileLoaded",
+                             IsExtraRootCertsFileLoaded);
 
   env->SetMethodNoSideEffect(target, "ECDHConvertKey", ConvertKey);
 #ifndef OPENSSL_NO_ENGINE
@@ -5715,9 +5715,9 @@ std::string GetOpenSSLVersion() {
   // for reference: "OpenSSL 1.1.0i 14 Aug 2018"
   char buf[128];
   const int start = search(OPENSSL_VERSION_TEXT, 0, ' ') + 1;
-  const int end = search(OPENSSL_VERSION_TEXT + start, start, ' ') + 1;
+  const int end = search(OPENSSL_VERSION_TEXT + start, start, ' ');
   const int len = end - start;
-  snprintf(buf, sizeof(buf), "%.*s\n", len, &OPENSSL_VERSION_TEXT[start]);
+  snprintf(buf, sizeof(buf), "%.*s", len, &OPENSSL_VERSION_TEXT[start]);
   return std::string(buf);
 }
 

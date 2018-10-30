@@ -128,11 +128,22 @@ void InitThreadLocalOnce() {
 }
 
 void Environment::TrackingTraceStateObserver::UpdateTraceCategoryState() {
+  if (!env_->is_main_thread()) {
+    // Ideally, we’d have a consistent story that treats all threads/Environment
+    // instances equally here. However, tracing is essentially global, and this
+    // callback is called from whichever thread calls `StartTracing()` or
+    // `StopTracing()`. The only way to do this in a threadsafe fashion
+    // seems to be only tracking this from the main thread, and only allowing
+    // these state modifications from the main thread.
+    return;
+  }
+
   env_->trace_category_state()[0] =
       *TRACE_EVENT_API_GET_CATEGORY_GROUP_ENABLED(
           TRACING_CATEGORY_NODE1(async_hooks));
 
   Isolate* isolate = env_->isolate();
+  HandleScope handle_scope(isolate);
   Local<Function> cb = env_->trace_category_state_function();
   if (cb.IsEmpty())
     return;
@@ -143,11 +154,9 @@ void Environment::TrackingTraceStateObserver::UpdateTraceCategoryState() {
 }
 
 Environment::Environment(IsolateData* isolate_data,
-                         Local<Context> context,
-                         tracing::AgentWriterHandle* tracing_agent_writer)
+                         Local<Context> context)
     : isolate_(context->GetIsolate()),
       isolate_data_(isolate_data),
-      tracing_agent_writer_(tracing_agent_writer),
       immediate_info_(context->GetIsolate()),
       tick_info_(context->GetIsolate()),
       timer_base_(uv_now(isolate_data->event_loop())),
@@ -158,9 +167,10 @@ Environment::Environment(IsolateData* isolate_data,
       makecallback_cntr_(0),
       should_abort_on_uncaught_toggle_(isolate_, 1),
       trace_category_state_(isolate_, kTraceCategoryCount),
+      stream_base_state_(isolate_, StreamBase::kNumStreamBaseStateFields),
       http_parser_buffer_(nullptr),
-      fs_stats_field_array_(isolate_, kFsStatsFieldsLength * 2),
-      fs_stats_field_bigint_array_(isolate_, kFsStatsFieldsLength * 2),
+      fs_stats_field_array_(isolate_, kFsStatsBufferLength),
+      fs_stats_field_bigint_array_(isolate_, kFsStatsBufferLength),
       context_(context->GetIsolate(), context) {
   // We'll be creating new objects so make sure we've entered the context.
   v8::HandleScope handle_scope(isolate());
@@ -182,10 +192,9 @@ Environment::Environment(IsolateData* isolate_data,
 
   AssignToContext(context, ContextInfo(""));
 
-  if (tracing_agent_writer_ != nullptr) {
-    trace_state_observer_.reset(new TrackingTraceStateObserver(this));
-    v8::TracingController* tracing_controller =
-        tracing_agent_writer_->GetTracingController();
+  if (tracing::AgentWriterHandle* writer = GetTracingAgentWriter()) {
+    trace_state_observer_ = std::make_unique<TrackingTraceStateObserver>(this);
+    v8::TracingController* tracing_controller = writer->GetTracingController();
     if (tracing_controller != nullptr)
       tracing_controller->AddTraceStateObserver(trace_state_observer_.get());
   }
@@ -234,9 +243,10 @@ Environment::~Environment() {
   context()->SetAlignedPointerInEmbedderData(
       ContextEmbedderIndex::kEnvironment, nullptr);
 
-  if (tracing_agent_writer_ != nullptr) {
-    v8::TracingController* tracing_controller =
-        tracing_agent_writer_->GetTracingController();
+  if (trace_state_observer_) {
+    tracing::AgentWriterHandle* writer = GetTracingAgentWriter();
+    CHECK_NOT_NULL(writer);
+    v8::TracingController* tracing_controller = writer->GetTracingController();
     if (tracing_controller != nullptr)
       tracing_controller->RemoveTraceStateObserver(trace_state_observer_.get());
   }
@@ -816,14 +826,7 @@ void Environment::CollectUVExceptionInfo(v8::Local<v8::Value> object,
 
 
 void Environment::AsyncHooks::grow_async_ids_stack() {
-  const uint32_t old_capacity = async_ids_stack_.Length() / 2;
-  const uint32_t new_capacity = old_capacity * 1.5;
-  AliasedBuffer<double, v8::Float64Array> new_buffer(
-      env()->isolate(), new_capacity * 2);
-
-  for (uint32_t i = 0; i < old_capacity * 2; ++i)
-    new_buffer[i] = async_ids_stack_[i];
-  async_ids_stack_ = std::move(new_buffer);
+  async_ids_stack_.reserve(async_ids_stack_.Length() * 3);
 
   env()->async_hooks_binding()->Set(
       env()->context(),

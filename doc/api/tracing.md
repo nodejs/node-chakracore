@@ -18,6 +18,8 @@ The available categories are:
   The [`async_hooks`] events have a unique `asyncId` and a special `triggerId`
   `triggerAsyncId` property.
 * `node.bootstrap` - Enables capture of Node.js bootstrap milestones.
+* `node.console` - Enables capture of `console.time()` and `console.count()`
+  output.
 * `node.environment` - Enables capture of Node.js Environment milestones.
 * `node.fs.sync` - Enables capture of trace data for file system sync methods.
 * `node.perf` - Enables capture of [Performance API] measurements.
@@ -79,6 +81,8 @@ Starting with Node.js 10.0.0, the tracing system uses the same time source
 as the one used by `process.hrtime()`
 however the trace-event timestamps are expressed in microseconds,
 unlike `process.hrtime()` which returns nanoseconds.
+
+The features from this module are not available in [`Worker`][] threads.
 
 ## The `trace_events` module
 <!-- YAML
@@ -203,3 +207,4 @@ console.log(trace_events.getEnabledCategories());
 [Performance API]: perf_hooks.html
 [V8]: v8.html
 [`async_hooks`]: async_hooks.html
+[`Worker`]: worker_threads.html#worker_threads_class_worker

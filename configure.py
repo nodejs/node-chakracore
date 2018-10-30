@@ -51,6 +51,8 @@ valid_mips_arch = ('loongson', 'r1', 'r2', 'r6', 'rx')
 valid_mips_fpu = ('fp32', 'fp64', 'fpxx')
 valid_mips_float_abi = ('soft', 'hard')
 valid_intl_modes = ('none', 'small-icu', 'full-icu', 'system-icu')
+with open ('tools/icu/icu_versions.json') as f:
+  icu_versions = json.load(f)
 
 # create option groups
 shared_optgroup = optparse.OptionGroup(parser, "Shared libraries",
@@ -388,6 +390,12 @@ parser.add_option('--with-etw',
     dest='with_etw',
     help='build with ETW (default is true on Windows)')
 
+parser.add_option('--use-largepages',
+    action='store_true',
+    dest='node_use_large_pages',
+    help='build with Large Pages support. This feature is supported only on Linux kernel' +
+         '>= 2.6.38 with Transparent Huge pages enabled')
+
 intl_optgroup.add_option('--with-intl',
     action='store',
     dest='with_intl',
@@ -419,7 +427,9 @@ intl_optgroup.add_option('--with-icu-locales',
 intl_optgroup.add_option('--with-icu-source',
     action='store',
     dest='with_icu_source',
-    help='Intl mode: optional local path to icu/ dir, or path/URL of icu source archive.')
+    help='Intl mode: optional local path to icu/ dir, or path/URL of '
+        'the icu4c source archive. '
+        'v%d.x or later recommended.' % icu_versions["minimum_icu"])
 
 parser.add_option('--with-ltcg',
     action='store_true',
@@ -1028,6 +1038,24 @@ def configure_node(o):
   else:
     o['variables']['node_use_dtrace'] = 'false'
 
+  if options.node_use_large_pages and flavor != 'linux':
+    raise Exception(
+      'Large pages are supported only on Linux Systems.')
+  if options.node_use_large_pages and flavor == 'linux':
+    if options.shared or options.enable_static:
+      raise Exception(
+        'Large pages are supported only while creating node executable.')
+    if target_arch!="x64":
+      raise Exception(
+        'Large pages are supported only x64 platform.')
+    # Example full version string: 2.6.32-696.28.1.el6.x86_64
+    FULL_KERNEL_VERSION=os.uname()[2]
+    KERNEL_VERSION=FULL_KERNEL_VERSION.split('-')[0]
+    if KERNEL_VERSION < "2.6.38":
+      raise Exception(
+        'Large pages need Linux kernel version >= 2.6.38')
+  o['variables']['node_use_large_pages'] = b(options.node_use_large_pages)
+
   if options.no_ifaddrs:
     o['defines'] += ['SUNOS_NO_IFADDRS']
 
@@ -1289,8 +1317,8 @@ def configure_intl(o):
         if (md5 == gotmd5):
           return targetfile
         else:
-          error('Expected: %s      *MISMATCH*' % md5)
-          error('\n ** Corrupted ZIP? Delete %s to retry download.\n' % targetfile)
+          warn('Expected: %s      *MISMATCH*' % md5)
+          warn('\n ** Corrupted ZIP? Delete %s to retry download.\n' % targetfile)
     return None
   icu_config = {
     'variables': {}
@@ -1434,11 +1462,12 @@ def configure_intl(o):
   # ICU source dir relative to tools/icu (for .gyp file)
   o['variables']['icu_path'] = icu_full_path
   if not os.path.isdir(icu_full_path):
-    warn('* ECMA-402 (Intl) support didn\'t find ICU in %s..' % icu_full_path)
     # can we download (or find) a zipfile?
     localzip = icu_download(icu_full_path)
     if localzip:
       nodedownload.unpack(localzip, icu_parent_path)
+    else:
+      warn('* ECMA-402 (Intl) support didn\'t find ICU in %s..' % icu_full_path)
   if not os.path.isdir(icu_full_path):
     error('''Cannot build Intl without ICU in %s.
        Fix, or disable with "--with-intl=none"''' % icu_full_path)
@@ -1458,6 +1487,9 @@ def configure_intl(o):
       icu_ver_major = m.group(1)
   if not icu_ver_major:
     error('Could not read U_ICU_VERSION_SHORT version from %s' % uvernum_h)
+  elif int(icu_ver_major) < icu_versions["minimum_icu"]:
+    error('icu4c v%d.x is too old, v%d.x or later is required.' % (int(icu_ver_major),
+                                                                  icu_versions["minimum_icu"]))
   icu_endianness = sys.byteorder[0];
   o['variables']['icu_ver_major'] = icu_ver_major
   o['variables']['icu_endianness'] = icu_endianness

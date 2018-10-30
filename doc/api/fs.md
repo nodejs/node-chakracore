@@ -980,6 +980,11 @@ In general, check for the accessibility of a file only if the file will not be
 used directly, for example when its accessibility is a signal from another
 process.
 
+On Windows, access-control policies (ACLs) on a directory may limit access to
+a file or directory. The `fs.access()` function, however, does not check the
+ACL and therefore may report that a path is accessible even if the ACL restricts
+the user from reading or writing to it.
+
 ## fs.accessSync(path[, mode])
 <!-- YAML
 added: v0.11.15
@@ -1410,7 +1415,7 @@ fs.copyFileSync('source.txt', 'destination.txt', COPYFILE_EXCL);
 <!-- YAML
 added: v0.1.31
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/19898
     description: Impose new restrictions on `start` and `end`, throwing
                  more appropriate errors in cases when we cannot reasonably
@@ -2304,7 +2309,7 @@ this API: [`fs.mkdtemp()`][].
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use.
 
-## fs.open(path, flags[, mode], callback)
+## fs.open(path[, flags[, mode]], callback)
 <!-- YAML
 added: v0.0.2
 changes:
@@ -2319,6 +2324,7 @@ changes:
 
 * `path` {string|Buffer|URL}
 * `flags` {string|number} See [support of file system `flags`][].
+  **Default:** `'r'`.
 * `mode` {integer} **Default:** `0o666` (readable and writable)
 * `callback` {Function}
   * `err` {Error}
@@ -2340,7 +2346,7 @@ a colon, Node.js will open a file system stream, as described by
 Functions based on `fs.open()` exhibit this behavior as well:
 `fs.writeFile()`, `fs.readFile()`, etc.
 
-## fs.openSync(path, flags[, mode])
+## fs.openSync(path[, flags, mode])
 <!-- YAML
 added: v0.1.21
 changes:
@@ -2351,7 +2357,8 @@ changes:
 -->
 
 * `path` {string|Buffer|URL}
-* `flags` {string|number} See [support of file system `flags`][].
+* `flags` {string|number} **Default:** `'r'`.
+   See [support of file system `flags`][].
 * `mode` {integer} **Default:** `0o666`
 * Returns: {number}
 

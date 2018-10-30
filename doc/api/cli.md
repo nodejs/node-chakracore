@@ -156,7 +156,7 @@ and profile Node.js instances. The tools attach to Node.js instances via a
 tcp port and communicate using the [Chrome DevTools Protocol][].
 
 ### `--loader=file`
-<!--
+<!-- YAML
 added: v9.0.0
 -->
 
@@ -524,6 +524,9 @@ malformed, but any errors are otherwise ignored.
 
 Note that neither the well known nor extra certificates are used when the `ca`
 options property is explicitly specified for a TLS or HTTPS client or server.
+
+This environment variable is ignored when `node` runs as setuid root or
+has Linux file capabilities set.
 
 ### `NODE_ICU_DATA=file`
 <!-- YAML

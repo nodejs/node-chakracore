@@ -426,7 +426,7 @@ The `decipher.setAAD()` method must be called before [`decipher.update()`][].
 <!-- YAML
 added: v1.0.0
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/17825
     description: This method now throws if the GCM tag length is invalid.
   - version: v7.2.0
@@ -1295,6 +1295,8 @@ added: v0.9.3
 deprecated: v10.0.0
 -->
 
+> Stability: 0 - Deprecated
+
 The default encoding to use for functions that can take either strings
 or [buffers][`Buffer`]. The default value is `'buffer'`, which makes methods
 default to [`Buffer`][] objects.
@@ -1311,6 +1313,8 @@ This property is deprecated.
 added: v6.0.0
 deprecated: v10.0.0
 -->
+
+> Stability: 0 - Deprecated
 
 Property for checking and controlling whether a FIPS compliant crypto provider
 is currently in use. Setting to true requires a FIPS build of Node.js.

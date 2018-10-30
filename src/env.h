@@ -84,9 +84,12 @@ struct PackageConfig {
 
 // The number of items passed to push_values_to_array_function has diminishing
 // returns around 8. This should be used at all call sites using said function.
-#ifndef NODE_PUSH_VAL_TO_ARRAY_MAX
-#define NODE_PUSH_VAL_TO_ARRAY_MAX 8
-#endif
+constexpr size_t NODE_PUSH_VAL_TO_ARRAY_MAX = 8;
+
+// Stat fields buffers contain twice the number of entries in an uv_stat_t
+// because `fs.StatWatcher` needs room to store 2 `fs.Stats` instances.
+constexpr size_t kFsStatsFieldsNumber = 14;
+constexpr size_t kFsStatsBufferLength = kFsStatsFieldsNumber * 2;
 
 // PER_ISOLATE_* macros: We have a lot of per-isolate properties
 // and adding and maintaining their getters and setters by hand would be
@@ -125,10 +128,8 @@ struct PackageConfig {
   V(address_string, "address")                                                \
   V(aliases_string, "aliases")                                                \
   V(args_string, "args")                                                      \
-  V(async, "async")                                                           \
   V(async_ids_stack_string, "async_ids_stack")                                \
   V(buffer_string, "buffer")                                                  \
-  V(bytes_string, "bytes")                                                    \
   V(bytes_parsed_string, "bytesParsed")                                       \
   V(bytes_read_string, "bytesRead")                                           \
   V(bytes_written_string, "bytesWritten")                                     \
@@ -487,7 +488,7 @@ class Environment {
       ~DefaultTriggerAsyncIdScope();
 
      private:
-      AliasedBuffer<double, v8::Float64Array> async_id_fields_ref_;
+      AsyncHooks* async_hooks_;
       double old_default_trigger_async_id_;
 
       DISALLOW_COPY_AND_ASSIGN(DefaultTriggerAsyncIdScope);
@@ -593,8 +594,7 @@ class Environment {
   static inline Environment* GetThreadLocalEnv();
 
   Environment(IsolateData* isolate_data,
-              v8::Local<v8::Context> context,
-              tracing::AgentWriterHandle* tracing_agent_writer);
+              v8::Local<v8::Context> context);
   ~Environment();
 
   void Start(const std::vector<std::string>& args,
@@ -630,7 +630,6 @@ class Environment {
   inline bool profiler_idle_notifier_started() const;
 
   inline v8::Isolate* isolate() const;
-  inline tracing::AgentWriterHandle* tracing_agent_writer() const;
   inline uv_loop_t* event_loop() const;
   inline uint32_t watched_providers() const;
 
@@ -668,6 +667,7 @@ class Environment {
   should_abort_on_uncaught_toggle();
 
   inline AliasedBuffer<uint8_t, v8::Uint8Array>& trace_category_state();
+  inline AliasedBuffer<int32_t, v8::Int32Array>& stream_base_state();
 
   // The necessary API for async_hooks.
   inline double new_async_id();
@@ -710,10 +710,6 @@ class Environment {
   inline AliasedBuffer<double, v8::Float64Array>* fs_stats_field_array();
   inline AliasedBuffer<uint64_t, v8::BigUint64Array>*
       fs_stats_field_bigint_array();
-
-  // stat fields contains twice the number of entries because `fs.StatWatcher`
-  // needs room to store data for *two* `fs.Stats` instances.
-  static const int kFsStatsFieldsLength = 14;
 
   inline std::vector<std::unique_ptr<fs::FileHandleReadWrap>>&
       file_handle_read_wrap_freelist();
@@ -920,7 +916,6 @@ class Environment {
 
   v8::Isolate* const isolate_;
   IsolateData* const isolate_data_;
-  tracing::AgentWriterHandle* const tracing_agent_writer_;
   uv_timer_t timer_handle_;
   uv_check_t immediate_check_handle_;
   uv_idle_t immediate_idle_handle_;
@@ -950,6 +945,8 @@ class Environment {
   // Attached to a Uint8Array that tracks the state of trace category
   AliasedBuffer<uint8_t, v8::Uint8Array> trace_category_state_;
   std::unique_ptr<TrackingTraceStateObserver> trace_state_observer_;
+
+  AliasedBuffer<int32_t, v8::Int32Array> stream_base_state_;
 
   std::unique_ptr<performance::performance_state> performance_state_;
   std::unordered_map<std::string, uint64_t> performance_marks_;

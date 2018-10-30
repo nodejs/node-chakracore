@@ -72,6 +72,10 @@
 #include "../deps/v8/src/third_party/vtune/v8-vtune.h"
 #endif
 
+#ifdef NODE_ENABLE_LARGE_CODE_PAGES
+#include "large_pages/node_large_page.h"
+#endif
+
 #include <errno.h>
 #include <fcntl.h>  // _O_RDWR
 #include <limits.h>  // PATH_MAX
@@ -389,6 +393,10 @@ static struct {
   }
 #endif  //  !NODE_USE_V8_PLATFORM || !HAVE_INSPECTOR
 } v8_platform;
+
+tracing::AgentWriterHandle* GetTracingAgentWriter() {
+  return v8_platform.GetTracingAgentWriter();
+}
 
 #ifdef __POSIX__
 static const unsigned kMaxSignal = 32;
@@ -1399,9 +1407,8 @@ void FatalException(Isolate* isolate,
     fatal_try_catch.SetVerbose(false);
 
     // This will return true if the JS layer handled it, false otherwise
-    Local<Value> caught =
-        fatal_exception_function.As<Function>()
-            ->Call(process_object, 1, &error);
+    MaybeLocal<Value> caught = fatal_exception_function.As<Function>()->Call(
+        env->context(), process_object, 1, &error);
 
     if (fatal_try_catch.HasTerminated())
       return;
@@ -1410,7 +1417,7 @@ void FatalException(Isolate* isolate,
       // The fatal exception function threw, so we must exit
       ReportException(env, fatal_try_catch);
       exit(7);
-    } else if (caught->IsFalse()) {
+    } else if (caught.ToLocalChecked()->IsFalse()) {
       ReportException(env, error, message);
 
       // fatal_exception_function call before may have set a new exit code ->
@@ -1438,6 +1445,18 @@ void FatalException(Isolate* isolate, const TryCatch& try_catch) {
   if (!try_catch.IsVerbose()) {
     FatalException(isolate, try_catch.Exception(), try_catch.Message());
   }
+}
+
+
+static void FatalException(const FunctionCallbackInfo<Value>& args) {
+  Isolate* isolate = args.GetIsolate();
+  Environment* env = Environment::GetCurrent(isolate);
+  if (env != nullptr && env->abort_on_uncaught_exception()) {
+    Abort();
+  }
+  Local<Value> exception = args[0];
+  Local<Message> message = Exception::CreateMessage(isolate, exception);
+  FatalException(isolate, exception, message);
 }
 
 
@@ -1560,14 +1579,6 @@ static void GetBinding(const FunctionCallbackInfo<Value>& args) {
   Local<Object> exports;
   if (mod != nullptr) {
     exports = InitModule(env, mod, module);
-  } else if (!strcmp(*module_v, "constants")) {
-    exports = Object::New(env->isolate());
-    CHECK(exports->SetPrototype(env->context(),
-                                Null(env->isolate())).FromJust());
-    DefineConstants(env->isolate(), exports);
-  } else if (!strcmp(*module_v, "natives")) {
-    exports = Object::New(env->isolate());
-    DefineJavaScript(env, exports);
   } else {
     return ThrowIfNoSuchModule(env, *module_v);
   }
@@ -1587,6 +1598,14 @@ static void GetInternalBinding(const FunctionCallbackInfo<Value>& args) {
   node_module* mod = get_internal_module(*module_v);
   if (mod != nullptr) {
     exports = InitModule(env, mod, module);
+  } else if (!strcmp(*module_v, "constants")) {
+    exports = Object::New(env->isolate());
+    CHECK(exports->SetPrototype(env->context(),
+                                Null(env->isolate())).FromJust());
+    DefineConstants(env->isolate(), exports);
+  } else if (!strcmp(*module_v, "natives")) {
+    exports = Object::New(env->isolate());
+    DefineJavaScript(env, exports);
   } else if (!strcmp(*module_v, "code_cache")) {
     // internalBinding('code_cache')
     exports = Object::New(env->isolate());
@@ -2184,6 +2203,10 @@ void LoadEnvironment(Environment* env) {
     return;
   }
 
+  Local<Function> trigger_fatal_exception =
+      env->NewFunctionTemplate(FatalException)->GetFunction(env->context())
+          .ToLocalChecked();
+
   // Bootstrap Node.js
   Local<Object> bootstrapper = Object::New(env->isolate());
   SetupBootstrapObject(env, bootstrapper);
@@ -2191,7 +2214,8 @@ void LoadEnvironment(Environment* env) {
   Local<Value> node_bootstrapper_args[] = {
     env->process_object(),
     bootstrapper,
-    bootstrapped_loaders
+    bootstrapped_loaders,
+    trigger_fatal_exception,
   };
   if (!ExecuteBootstrapper(env, node_bootstrapper.ToLocalChecked(),
                            arraysize(node_bootstrapper_args),
@@ -2837,8 +2861,7 @@ Environment* CreateEnvironment(IsolateData* isolate_data,
   // options than the global parse call.
   std::vector<std::string> args(argv, argv + argc);
   std::vector<std::string> exec_args(exec_argv, exec_argv + exec_argc);
-  Environment* env = new Environment(isolate_data, context,
-                                     v8_platform.GetTracingAgentWriter());
+  Environment* env = new Environment(isolate_data, context);
   env->Start(args, exec_args, v8_is_profiling);
   return env;
 }
@@ -2847,6 +2870,11 @@ Environment* CreateEnvironment(IsolateData* isolate_data,
 void FreeEnvironment(Environment* env) {
   env->RunCleanup();
   delete env;
+}
+
+
+Environment* GetCurrentEnvironment(Local<Context> context) {
+  return Environment::GetCurrent(context);
 }
 
 
@@ -2946,7 +2974,7 @@ inline int Start(Isolate* isolate, void* isolate_context,
   IsolateData* isolate_data = reinterpret_cast<IsolateData*>(isolate_context);
 #endif
 
-  Environment env(isolate_data, context, v8_platform.GetTracingAgentWriter());
+  Environment env(isolate_data, context);
   env.Start(args, exec_args, v8_is_profiling);
 
   const char* path = args.size() > 1 ? args[1].c_str() : nullptr;
@@ -3165,6 +3193,14 @@ int Start(int argc, char** argv) {
   performance::performance_node_start = PERFORMANCE_NOW();
 
   CHECK_GT(argc, 0);
+
+#ifdef NODE_ENABLE_LARGE_CODE_PAGES
+  if (node::IsLargePagesEnabled()) {
+    if (node::MapStaticCodeToLargePages() != 0) {
+      fprintf(stderr, "Reverting to default page size\n");
+    }
+  }
+#endif
 
   // Hack around with the argv pointer. Used for process.title = "blah".
   argv = uv_setup_args(argc, argv);

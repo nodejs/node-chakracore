@@ -1197,7 +1197,7 @@ console.log(buf1.equals(buf3));
 <!-- YAML
 added: v0.5.0
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/22969
     description: Throws `ERR_OUT_OF_RANGE` instead of `ERR_INDEX_OUT_OF_RANGE`.
   - version: v10.0.0
@@ -1934,6 +1934,14 @@ const buf2 = Buffer.from([0x1, 0x2, 0x3]);
 
 buf2.swap16();
 // Throws ERR_INVALID_BUFFER_SIZE
+```
+
+One convenient use of `buf.swap16()` is to perform a fast in-place conversion
+between UTF-16 little-endian and UTF-16 big-endian:
+
+```js
+const buf = Buffer.from('This is little-endian UTF-16', 'utf16le');
+buf.swap16(); // Convert to big-endian UTF-16 text.
 ```
 
 ### buf.swap32()

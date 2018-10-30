@@ -199,8 +199,8 @@ class ContainerOfHelper {
 // Calculate the address of the outer (i.e. embedding) struct from
 // the interior pointer to a data member.
 template <typename Inner, typename Outer>
-inline ContainerOfHelper<Inner, Outer> ContainerOf(Inner Outer::*field,
-                                                   Inner* pointer);
+constexpr ContainerOfHelper<Inner, Outer> ContainerOf(Inner Outer::*field,
+                                                      Inner* pointer);
 
 // If persistent.IsWeak() == false, then do not call persistent.Reset()
 // while the returned Local<T> is still in scope, it will destroy the
@@ -440,9 +440,14 @@ struct MallocedBuffer {
     return ret;
   }
 
+  void Truncate(size_t new_size) {
+    CHECK(new_size <= size);
+    size = new_size;
+  }
+
   inline bool is_empty() const { return data == nullptr; }
 
-  MallocedBuffer() : data(nullptr) {}
+  MallocedBuffer() : data(nullptr), size(0) {}
   explicit MallocedBuffer(size_t size) : data(Malloc<T>(size)), size(size) {}
   MallocedBuffer(T* data, size_t size) : data(data), size(size) {}
   MallocedBuffer(MallocedBuffer&& other) : data(other.data), size(other.size) {

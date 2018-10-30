@@ -223,9 +223,9 @@
       [ 'OS=="win" and '
         'node_use_openssl=="true" and '
         'node_shared_openssl=="false"', {
-        'use_openssl_def': 1,
+        'use_openssl_def%': 1,
       }, {
-        'use_openssl_def': 0,
+        'use_openssl_def%': 0,
       }],
     ],
   },
@@ -614,6 +614,15 @@
             'src/tls_wrap.h'
           ],
         }],
+        [ 'node_use_large_pages=="true" and OS=="linux"', {
+          'defines': [ 'NODE_ENABLE_LARGE_CODE_PAGES=1' ],
+          # The current implementation of Large Pages is under Linux.
+          # Other implementations are possible but not currently supported.
+          'sources': [
+            'src/large_pages/node_large_page.cc',
+            'src/large_pages/node_large_page.h'
+          ],
+        }],
         [ 'use_openssl_def==1', {
           # TODO(bnoordhuis) Make all platforms export the same list of symbols.
           # Teach mkssldef.py to generate linker maps that UNIX linkers understand.
@@ -622,7 +631,8 @@
               # Categories to export.
               '-CAES,BF,BIO,DES,DH,DSA,EC,ECDH,ECDSA,ENGINE,EVP,HMAC,MD4,MD5,'
               'PSK,RC2,RC4,RSA,SHA,SHA0,SHA1,SHA256,SHA512,SOCK,STDIO,TLSEXT,'
-              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT',
+              'FP_API,TLS1_METHOD,TLS1_1_METHOD,TLS1_2_METHOD,SCRYPT,OCSP,'
+              'NEXTPROTONEG,RMD160,CAST',
               # Defines.
               '-DWIN32',
               # Symbols to filter from the export list.

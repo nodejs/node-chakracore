@@ -198,8 +198,8 @@ Within a worker, `process.on('message')` may also be used.
 
 See [`process` event: `'message'`][].
 
-As an example, here is a cluster that keeps count of the number of requests
-in the master process using the message system:
+Here is an example using the message system. It keeps a count in the master
+process of the number of HTTP requests received by the workers:
 
 ```js
 const cluster = require('cluster');
@@ -703,7 +703,7 @@ values are `'rr'` and `'none'`.
 <!-- YAML
 added: v0.7.1
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/21316
     description: The `windowsHide` option now defaults to `true`.
   - version: v9.5.0

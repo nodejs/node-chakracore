@@ -109,7 +109,7 @@ The process object. See the [`process` object][] section.
 
 ## queueMicrotask(callback)
 <!-- YAML
-added: REPLACEME
+added: v11.0.0
 -->
 
 <!-- type=global -->
@@ -119,8 +119,8 @@ added: REPLACEME
 * `callback` {Function} Function to be queued.
 
 The `queueMicrotask()` method queues a microtask to invoke `callback`. If
-`callback` throws an exception, the [`process` object][] `'error'` event will
-be emitted.
+`callback` throws an exception, the [`process` object][] `'uncaughtException'`
+event will be emitted.
 
 In general, `queueMicrotask` is the idiomatic choice over `process.nextTick()`.
 `process.nextTick()` will always run before the microtask queue, and so
@@ -180,7 +180,7 @@ added: v0.0.1
 
 ## TextDecoder
 <!-- YAML
-added: REPLACEME
+added: v11.0.0
 -->
 
 <!-- type=global -->
@@ -189,7 +189,7 @@ The WHATWG `TextDecoder` class. See the [`TextDecoder`][] section.
 
 ## TextEncoder
 <!-- YAML
-added: REPLACEME
+added: v11.0.0
 -->
 
 <!-- type=global -->

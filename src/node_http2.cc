@@ -1263,10 +1263,7 @@ void Http2StreamListener::OnStreamRead(ssize_t nread, const uv_buf_t& buf) {
   CHECK_LE(offset, session->stream_buf_.len);
   CHECK_LE(offset + buf.len, session->stream_buf_.len);
 
-  Local<Object> buffer =
-      Buffer::New(env, session->stream_buf_ab_, offset, nread).ToLocalChecked();
-
-  stream->CallJSOnreadMethod(nread, buffer);
+  stream->CallJSOnreadMethod(nread, session->stream_buf_ab_, offset);
 }
 
 
