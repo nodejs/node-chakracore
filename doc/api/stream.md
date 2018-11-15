@@ -1205,9 +1205,8 @@ added: v0.9.4
 * `stream` {Stream} An "old style" readable stream
 * Returns: {this}
 
-Versions of Node.js prior to v0.10 had streams that did not implement the
-entire `stream` module API as it is currently defined. (See [Compatibility][]
-for more information.)
+Prior to Node.js 0.10, streams did not implement the entire `stream` module API
+as it is currently defined. (See [Compatibility][] for more information.)
 
 When using an older Node.js library that emits [`'data'`][] events and has a
 [`stream.pause()`][stream-pause] method that is advisory only, the
@@ -1307,7 +1306,7 @@ added: v8.0.0
 
 Destroy the stream, and emit `'error'`. After this call, the
 transform stream would release any internal resources.
-implementors should not override this method, but instead implement
+Implementors should not override this method, but instead implement
 [`readable._destroy()`][readable-_destroy].
 The default implementation of `_destroy()` for `Transform` also emit `'close'`.
 
@@ -1491,9 +1490,13 @@ changes:
   * `highWaterMark` {number} Buffer level when
     [`stream.write()`][stream-write] starts returning `false`. **Default:**
     `16384` (16kb), or `16` for `objectMode` streams.
-  * `decodeStrings` {boolean} Whether or not to decode strings into
-    `Buffer`s before passing them to [`stream._write()`][stream-_write].
+  * `decodeStrings` {boolean} Whether or not to encode strings as
+    `Buffer`s before passing them to [`stream._write()`][stream-_write],
+    using the encoding specified in the [`stream.write()`][stream-write] call.
     **Default:** `true`.
+  * `defaultEncoding` {string} The default encoding that is used when no
+    encoding is specified as an argument to [`stream.write()`][stream-write].
+    **Default:** `'utf8'`.
   * `objectMode` {boolean} Whether or not the
     [`stream.write(anyObj)`][stream-write] is a valid operation. When set,
     it becomes possible to write JavaScript values other than string,
@@ -2312,10 +2315,10 @@ primarily for examples and testing, but there are some use cases where
 
 <!--type=misc-->
 
-In versions of Node.js prior to v0.10, the `Readable` stream interface was
-simpler, but also less powerful and less useful.
+Prior to Node.js 0.10, the `Readable` stream interface was simpler, but also
+less powerful and less useful.
 
-* Rather than waiting for calls the [`stream.read()`][stream-read] method,
+* Rather than waiting for calls to the [`stream.read()`][stream-read] method,
   [`'data'`][] events would begin emitting immediately. Applications that
   would need to perform some amount of work to decide how to handle data
   were required to store read data into buffers so the data would not be lost.
@@ -2323,7 +2326,7 @@ simpler, but also less powerful and less useful.
   guaranteed. This meant that it was still necessary to be prepared to receive
   [`'data'`][] events *even when the stream was in a paused state*.
 
-In Node.js v0.10, the [`Readable`][] class was added. For backwards
+In Node.js 0.10, the [`Readable`][] class was added. For backwards
 compatibility with older Node.js programs, `Readable` streams switch into
 "flowing mode" when a [`'data'`][] event handler is added, or when the
 [`stream.resume()`][stream-resume] method is called. The effect is that, even
@@ -2353,9 +2356,8 @@ net.createServer((socket) => {
 }).listen(1337);
 ```
 
-In versions of Node.js prior to v0.10, the incoming message data would be
-simply discarded. However, in Node.js v0.10 and beyond, the socket remains
-paused forever.
+Prior to Node.js 0.10, the incoming message data would be simply discarded.
+However, in Node.js 0.10 and beyond, the socket remains paused forever.
 
 The workaround in this situation is to call the
 [`stream.resume()`][stream-resume] method to begin the flow of data:
@@ -2373,7 +2375,7 @@ net.createServer((socket) => {
 ```
 
 In addition to new `Readable` streams switching into flowing mode,
-pre-v0.10 style streams can be wrapped in a `Readable` class using the
+pre-0.10 style streams can be wrapped in a `Readable` class using the
 [`readable.wrap()`][`stream.wrap()`] method.
 
 ### `readable.read(0)`

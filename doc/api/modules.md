@@ -200,10 +200,11 @@ Modules are cached after the first time they are loaded. This means
 (among other things) that every call to `require('foo')` will get
 exactly the same object returned, if it would resolve to the same file.
 
-Multiple calls to `require('foo')` may not cause the module code to be
-executed multiple times.  This is an important feature. With it,
-"partially done" objects can be returned, thus allowing transitive
-dependencies to be loaded even when they would cause cycles.
+Provided `require.cache` is not modified, multiple calls to
+`require('foo')` will not cause the module code to be executed multiple times.
+This is an important feature. With it, "partially done" objects can be returned,
+thus allowing transitive dependencies to be loaded even when they would cause
+cycles.
 
 To have a module execute code multiple times, export a function, and call
 that function.
@@ -888,12 +889,30 @@ by the [module wrapper][]. To access it, require the `Module` module:
 const builtin = require('module').builtinModules;
 ```
 
+### module.createRequireFromPath(filename)
+<!-- YAML
+added: v10.12.0
+-->
+
+* `filename` {string} Filename to be used to construct the relative require
+  function.
+* Returns: {[`require`][]} Require function
+
+```js
+const { createRequireFromPath } = require('module');
+const requireUtil = createRequireFromPath('../src/utils');
+
+// require `../src/utils/some-tool`
+requireUtil('./some-tool');
+```
+
 [`__dirname`]: #modules_dirname
 [`__filename`]: #modules_filename
 [`Error`]: errors.html#errors_class_error
 [`module` object]: #modules_the_module_object
 [`path.dirname()`]: path.html#path_path_dirname_path
 [GLOBAL_FOLDERS]: #modules_loading_from_the_global_folders
+[`require`]: #modules_require
 [exports shortcut]: #modules_exports_shortcut
 [module resolution]: #modules_all_together
 [module wrapper]: #modules_the_module_wrapper

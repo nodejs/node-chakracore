@@ -198,8 +198,8 @@ Each placeholder token is replaced with the converted value from the
 corresponding argument. Supported placeholders are:
 
 * `%s` - `String`.
-* `%d` - `Number` (integer or floating point value).
-* `%i` - Integer.
+* `%d` - `Number` (integer or floating point value) or `BigInt`.
+* `%i` - Integer or `BigInt`.
 * `%f` - Floating point value.
 * `%j` - JSON. Replaced with the string `'[Circular]'` if the argument
 contains circular references.
@@ -357,9 +357,13 @@ stream.write('With ES6');
 ```
 
 ## util.inspect(object[, options])
+## util.inspect(object[, showHidden[, depth[, colors]]])
 <!-- YAML
 added: v0.3.0
 changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/22788
+    description: The `sorted` option is supported now.
   - version: v10.6.0
     pr-url: https://github.com/nodejs/node/pull/20725
     description: Inspecting linked lists and similar objects is now possible
@@ -420,7 +424,10 @@ changes:
     objects the same as arrays. Note that no text will be reduced below 16
     characters, no matter the `breakLength` size. For more information, see the
     example below. **Default:** `true`.
-
+  * `sorted` {boolean|Function} If set to `true` or a function, all properties
+    of an object and Set and Map entries will be sorted in the returned string.
+    If set to `true` the [default sort][] is going to be used. If set to a
+    function, it is used as a [compare function][].
 * Returns: {string} The representation of passed object
 
 The `util.inspect()` method returns a string representation of `object` that is
@@ -534,6 +541,34 @@ console.log(inspect(weakSet, { showHidden: true }));
 // WeakSet { { a: 1 }, { b: 2 } }
 ```
 
+The `sorted` option makes sure the output is identical, no matter of the
+properties insertion order:
+
+```js
+const { inspect } = require('util');
+const assert = require('assert');
+
+const o1 = {
+  b: [2, 3, 1],
+  a: '`a` comes before `b`',
+  c: new Set([2, 3, 1])
+};
+console.log(inspect(o1, { sorted: true }));
+// { a: '`a` comes before `b`', b: [ 2, 3, 1 ], c: Set { 1, 2, 3 } }
+console.log(inspect(o1, { sorted: (a, b) => b.localeCompare(a) }));
+// { c: Set { 3, 2, 1 }, b: [ 2, 3, 1 ], a: '`a` comes before `b`' }
+
+const o2 = {
+  c: new Set([2, 1, 3]),
+  a: '`a` comes before `b`',
+  b: [2, 3, 1]
+};
+assert.strict.equal(
+  inspect(o1, { sorted: true }),
+  inspect(o2, { sorted: true })
+);
+```
+
 Please note that `util.inspect()` is a synchronous method that is mainly
 intended as a debugging tool. Some input values can have a significant
 performance overhead that can block the event loop. Use this function
@@ -572,9 +607,10 @@ terminals.
 
 <!-- type=misc -->
 
-Objects may also define their own `[util.inspect.custom](depth, opts)`
-(or the equivalent but deprecated `inspect(depth, opts)`) function that
-`util.inspect()` will invoke and use the result of when inspecting the object:
+Objects may also define their own
+[`[util.inspect.custom](depth, opts)`][util.inspect.custom] (or the equivalent
+but deprecated `inspect(depth, opts)`) function, which `util.inspect()` will
+invoke and use the result of when inspecting the object:
 
 ```js
 const util = require('util');
@@ -626,10 +662,41 @@ util.inspect(obj);
 ### util.inspect.custom
 <!-- YAML
 added: v6.6.0
+changes:
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/20857
+    description: This is now defined as a shared symbol.
 -->
 
-A {symbol} that can be used to declare custom inspect functions, see
-[Custom inspection functions on Objects][].
+* {symbol} that can be used to declare custom inspect functions.
+
+In addition to being accessible through `util.inspect.custom`, this
+symbol is [registered globally][global symbol registry] and can be
+accessed in any environment as `Symbol.for('nodejs.util.inspect.custom')`.
+
+```js
+const inspect = Symbol.for('nodejs.util.inspect.custom');
+
+class Password {
+  constructor(value) {
+    this.value = value;
+  }
+
+  toString() {
+    return 'xxxxxxxx';
+  }
+
+  [inspect]() {
+    return `Password <${this.toString()}>`;
+  }
+}
+
+const password = new Password('r0sebud');
+console.log(password);
+// Prints Password <xxxxxxxx>
+```
+
+See [Custom inspection functions on Objects][] for more details.
 
 ### util.inspect.defaultOptions
 <!-- YAML
@@ -2076,7 +2143,6 @@ Deprecated predecessor of `console.log`.
 [`Array.isArray()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
 [`ArrayBuffer`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer
 [`ArrayBuffer.isView()`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer/isView
-[async function]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function
 [`assert.deepStrictEqual()`]: assert.html#assert_assert_deepstrictequal_actual_expected_message
 [`Buffer.isBuffer()`]: buffer.html#buffer_class_method_buffer_isbuffer_obj
 [`console.error()`]: console.html#console_console_error_data_args
@@ -2118,6 +2184,11 @@ Deprecated predecessor of `console.log`.
 [Module Namespace Object]: https://tc39.github.io/ecma262/#sec-module-namespace-exotic-objects
 [WHATWG Encoding Standard]: https://encoding.spec.whatwg.org/
 [Common System Errors]: errors.html#errors_common_system_errors
+[async function]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function
+[compare function]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Parameters
 [constructor]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/constructor
+[default sort]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
+[global symbol registry]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/for
 [list of deprecated APIS]: deprecations.html#deprecations_list_of_deprecated_apis
 [semantically incompatible]: https://github.com/nodejs/node/issues/4179
+[util.inspect.custom]: #util_util_inspect_custom

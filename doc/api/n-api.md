@@ -11,8 +11,8 @@ the underlying JavaScript runtime (ex V8) and is maintained as part of
 Node.js itself. This API will be Application Binary Interface (ABI) stable
 across versions of Node.js. It is intended to insulate Addons from
 changes in the underlying JavaScript engine and allow modules
-compiled for one version to run on later versions of Node.js without
-recompilation.
+compiled for one major version to run on later major versions of Node.js without
+recompilation. The [ABI Stability][] guide provides a more in-depth explanation.
 
 Addons are built/packaged with the same approach/tools
 outlined in the section titled [C++ Addons](addons.html).
@@ -571,7 +571,7 @@ NAPI_EXTERN napi_status napi_is_error(napi_env env,
                                       bool* result);
 ```
 - `[in] env`: The environment that the API is invoked under.
-- `[in] msg`: The `napi_value` to be checked.
+- `[in] value`: The `napi_value` to be checked.
 - `[out] result`: Boolean value that is set to true if `napi_value` represents
 an error, false otherwise.
 
@@ -1757,7 +1757,7 @@ added: v10.7.0
 
 ```C
 napi_status napi_create_bigint_uint64(napi_env env,
-                                      uint64_t vaue,
+                                      uint64_t value,
                                       napi_value* result);
 ```
 
@@ -4447,8 +4447,8 @@ by the `async_hooks` API.
 - `[in] max_queue_size`: Maximum size of the queue. `0` for no limit.
 - `[in] initial_thread_count`: The initial number of threads, including the main
 thread, which will be making use of this function.
-- `[in] thread_finalize_data`: Data to be passed to `thread_finalize_cb`.
-- `[in] thread_finalize_cb`: Function to call when the
+- `[in] thread_finalize_data`: Optional data to be passed to `thread_finalize_cb`.
+- `[in] thread_finalize_cb`: Optional function to call when the
 `napi_threadsafe_function` is being destroyed.
 - `[in] context`: Optional data to attach to the resulting
 `napi_threadsafe_function`.
@@ -4596,6 +4596,7 @@ idempotent.
 
 This API may only be called from the main thread.
 
+[ABI Stability]: https://nodejs.org/en/docs/guides/abi-stability/
 [ECMAScript Language Specification]: https://tc39.github.io/ecma262/
 [Error Handling]: #n_api_error_handling
 [Native Abstractions for Node.js]: https://github.com/nodejs/nan

@@ -113,6 +113,7 @@ struct PackageConfig {
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
   V(owner_symbol, "owner")                                                    \
+  V(oninit_symbol, "oninit")                                                  \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
@@ -219,15 +220,16 @@ struct PackageConfig {
   V(onhandshakedone_string, "onhandshakedone")                                \
   V(onhandshakestart_string, "onhandshakestart")                              \
   V(onheaders_string, "onheaders")                                            \
-  V(oninit_string, "oninit")                                                  \
   V(onmessage_string, "onmessage")                                            \
   V(onnewsession_string, "onnewsession")                                      \
   V(onocspresponse_string, "onocspresponse")                                  \
   V(ongoawaydata_string, "ongoawaydata")                                      \
+  V(onorigin_string, "onorigin")                                              \
   V(onpriority_string, "onpriority")                                          \
   V(onread_string, "onread")                                                  \
   V(onreadstart_string, "onreadstart")                                        \
   V(onreadstop_string, "onreadstop")                                          \
+  V(onping_string, "onping")                                                  \
   V(onsettings_string, "onsettings")                                          \
   V(onshutdown_string, "onshutdown")                                          \
   V(onsignal_string, "onsignal")                                              \
@@ -317,7 +319,8 @@ struct PackageConfig {
   V(async_hooks_destroy_function, v8::Function)                               \
   V(async_hooks_init_function, v8::Function)                                  \
   V(async_hooks_promise_resolve_function, v8::Function)                       \
-  V(async_wrap_constructor_template, v8::FunctionTemplate)                    \
+  V(async_wrap_object_ctor_template, v8::FunctionTemplate)                    \
+  V(async_wrap_ctor_template, v8::FunctionTemplate)                           \
   V(buffer_prototype_object, v8::Object)                                      \
   V(context, v8::Context)                                                     \
   V(domain_callback, v8::Function)                                            \
@@ -327,6 +330,7 @@ struct PackageConfig {
   V(filehandlereadwrap_template, v8::ObjectTemplate)                          \
   V(fsreqpromise_constructor_template, v8::ObjectTemplate)                    \
   V(fs_use_promises_symbol, v8::Symbol)                                       \
+  V(handle_wrap_ctor_template, v8::FunctionTemplate)                          \
   V(host_import_module_dynamically_callback, v8::Function)                    \
   V(host_initialize_import_meta_object_callback, v8::Function)                \
   V(http2ping_constructor_template, v8::ObjectTemplate)                       \
@@ -334,14 +338,14 @@ struct PackageConfig {
   V(http2stream_constructor_template, v8::ObjectTemplate)                     \
   V(immediate_callback_function, v8::Function)                                \
   V(inspector_console_api_object, v8::Object)                                 \
+  V(libuv_stream_wrap_ctor_template, v8::FunctionTemplate)                    \
   V(message_port, v8::Object)                                                 \
   V(message_port_constructor_template, v8::FunctionTemplate)                  \
   V(pipe_constructor_template, v8::FunctionTemplate)                          \
   V(performance_entry_callback, v8::Function)                                 \
   V(performance_entry_template, v8::Function)                                 \
   V(process_object, v8::Object)                                               \
-  V(promise_reject_handled_function, v8::Function)                            \
-  V(promise_reject_unhandled_function, v8::Function)                          \
+  V(promise_handler_function, v8::Function)                                   \
   V(promise_wrap_template, v8::ObjectTemplate)                                \
   V(push_values_to_array_function, v8::Function)                              \
   V(sab_lifetimepartner_constructor_template, v8::FunctionTemplate)           \

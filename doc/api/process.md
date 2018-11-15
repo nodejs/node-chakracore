@@ -97,6 +97,59 @@ the child process.
 The message goes through serialization and parsing. The resulting message might
 not be the same as what is originally sent.
 
+### Event: 'multipleResolves'
+<!-- YAML
+added: v10.12.0
+-->
+
+* `type` {string} The error type. One of `'resolve'` or `'reject'`.
+* `promise` {Promise} The promise that resolved or rejected more than once.
+* `value` {any} The value with which the promise was either resolved or
+  rejected after the original resolve.
+
+The `'multipleResolves'` event is emitted whenever a `Promise` has been either:
+
+* Resolved more than once.
+* Rejected more than once.
+* Rejected after resolve.
+* Resolved after reject.
+
+This is useful for tracking errors in your application while using the promise
+constructor. Otherwise such mistakes are silently swallowed due to being in a
+dead zone.
+
+It is recommended to end the process on such errors, since the process could be
+in an undefined state. While using the promise constructor make sure that it is
+guaranteed to trigger the `resolve()` or `reject()` functions exactly once per
+call and never call both functions in the same call.
+
+```js
+process.on('multipleResolves', (type, promise, reason) => {
+  console.error(type, promise, reason);
+  setImmediate(() => process.exit(1));
+});
+
+async function main() {
+  try {
+    return await new Promise((resolve, reject) => {
+      resolve('First call');
+      resolve('Swallowed resolve');
+      reject(new Error('Swallowed reject'));
+    });
+  } catch {
+    throw new Error('Failed');
+  }
+}
+
+main().then(console.log);
+// resolve: Promise { 'First call' } 'Swallowed resolve'
+// reject: Promise { 'First call' } Error: Swallowed reject
+//     at Promise (*)
+//     at new Promise (<anonymous>)
+//     at main (*)
+// First call
+```
+
 ### Event: 'rejectionHandled'
 <!-- YAML
 added: v1.4.1
@@ -1797,8 +1850,6 @@ a [Writable][] stream.
 `process.stderr` differs from other Node.js streams in important ways, see
 [note on process I/O][] for more information.
 
-This feature is not available in [`Worker`][] threads.
-
 ## process.stdin
 
 * {Stream}
@@ -1831,8 +1882,6 @@ In "old" streams mode the `stdin` stream is paused by default, so one
 must call `process.stdin.resume()` to read from it. Note also that calling
 `process.stdin.resume()` itself would switch stream to "old" mode.
 
-This feature is not available in [`Worker`][] threads.
-
 ## process.stdout
 
 * {Stream}
@@ -1851,8 +1900,6 @@ process.stdin.pipe(process.stdout);
 `process.stdout` differs from other Node.js streams in important ways, see
 [note on process I/O][] for more information.
 
-This feature is not available in [`Worker`][] threads.
-
 ### A note on process I/O
 
 `process.stdout` and `process.stderr` differ from other Node.js streams in
@@ -1860,9 +1907,7 @@ important ways:
 
 1. They are used internally by [`console.log()`][] and [`console.error()`][],
    respectively.
-2. They cannot be closed ([`end()`][] will throw).
-3. They will never emit the [`'finish'`][] event.
-4. Writes may be synchronous depending on what the stream is connected to
+2. Writes may be synchronous depending on what the stream is connected to
    and whether the system is Windows or POSIX:
    - Files: *synchronous* on Windows and POSIX
    - TTYs (Terminals): *asynchronous* on Windows, *synchronous* on POSIX
@@ -2087,7 +2132,6 @@ cases:
   code will be `128` + `6`, or `134`.
 
 [`'exit'`]: #process_event_exit
-[`'finish'`]: stream.html#stream_event_finish
 [`'message'`]: child_process.html#child_process_event_message
 [`'rejectionHandled'`]: #process_event_rejectionhandled
 [`'uncaughtException'`]: #process_event_uncaughtexception
@@ -2101,7 +2145,6 @@ cases:
 [`console.error()`]: console.html#console_console_error_data_args
 [`console.log()`]: console.html#console_console_log_data_args
 [`domain`]: domain.html
-[`end()`]: stream.html#stream_writable_end_chunk_encoding_callback
 [`net.Server`]: net.html#net_class_net_server
 [`net.Socket`]: net.html#net_class_net_socket
 [`NODE_OPTIONS`]: cli.html#cli_node_options_options

@@ -158,11 +158,6 @@ Indicates `hasCrypto` and `crypto` with fips.
 
 Indicates if [internationalization] is supported.
 
-### hasSmallICU
-* [&lt;boolean>]
-
-Indicates `hasIntl` and `small-icu` are supported.
-
 ### hasIPv6
 * [&lt;boolean>]
 
@@ -223,11 +218,6 @@ Platform check for Windows.
 * [&lt;boolean>]
 
 Platform check for Windows 32-bit on Windows 64-bit.
-
-### leakedGlobals()
-* return [&lt;Array>]
-
-Indicates whether any globals are not on the `knownGlobals` list.
 
 ### localhostIPv4
 * [&lt;string>]
@@ -360,6 +350,11 @@ was disabled at compile time.
 
 Skip the rest of the tests in the current file when the Node.js executable
 was compiled with a pointer size smaller than 64 bits.
+
+### skipIfWorker()
+
+Skip the rest of the tests in the current file when not running on a main
+thread.
 
 ## ArrayStream Module
 

@@ -50,14 +50,11 @@ class TimerWrap : public HandleWrap {
     Environment* env = Environment::GetCurrent(context);
     Local<FunctionTemplate> constructor = env->NewFunctionTemplate(New);
     Local<String> timerString = FIXED_ONE_BYTE_STRING(env->isolate(), "Timer");
+    constructor->Inherit(HandleWrap::GetConstructorTemplate(env));
     constructor->InstanceTemplate()->SetInternalFieldCount(1);
     constructor->SetClassName(timerString);
 
     env->SetTemplateMethod(constructor, "now", Now);
-
-    AsyncWrap::AddWrapMethods(env, constructor);
-    HandleWrap::AddWrapMethods(env, constructor);
-
     env->SetProtoMethod(constructor, "start", Start);
     env->SetProtoMethod(constructor, "stop", Stop);
 
@@ -69,9 +66,9 @@ class TimerWrap : public HandleWrap {
                    ->GetFunction(env->context()).ToLocalChecked()).FromJust();
   }
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(TimerWrap)
+  SET_SELF_SIZE(TimerWrap)
 
  private:
   static void SetupTimers(const FunctionCallbackInfo<Value>& args) {

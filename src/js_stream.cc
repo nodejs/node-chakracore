@@ -203,8 +203,7 @@ void JSStream::Initialize(Local<Object> target,
       FIXED_ONE_BYTE_STRING(env->isolate(), "JSStream");
   t->SetClassName(jsStreamString);
   t->InstanceTemplate()->SetInternalFieldCount(1);
-
-  AsyncWrap::AddWrapMethods(env, t);
+  t->Inherit(AsyncWrap::GetConstructorTemplate(env));
 
   env->SetProtoMethod(t, "finishWrite", Finish<WriteWrap>);
   env->SetProtoMethod(t, "finishShutdown", Finish<ShutdownWrap>);
@@ -212,7 +211,7 @@ void JSStream::Initialize(Local<Object> target,
   env->SetProtoMethod(t, "emitEOF", EmitEOF);
 
   StreamBase::AddMethods<JSStream>(env, t);
-  target->Set(jsStreamString, t->GetFunction());
+  target->Set(jsStreamString, t->GetFunction(context).ToLocalChecked());
 }
 
 }  // namespace node

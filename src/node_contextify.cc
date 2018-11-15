@@ -207,7 +207,8 @@ void ContextifyContext::Init(Environment* env, Local<Object> target) {
   Local<FunctionTemplate> function_template =
       FunctionTemplate::New(env->isolate());
   function_template->InstanceTemplate()->SetInternalFieldCount(1);
-  env->set_script_data_constructor_function(function_template->GetFunction());
+  env->set_script_data_constructor_function(
+      function_template->GetFunction(env->context()).ToLocalChecked());
 
   env->SetMethod(target, "makeContext", MakeContext);
   env->SetMethod(target, "isContext", IsContext);
@@ -614,13 +615,11 @@ class ContextifyScript : public BaseObject {
  private:
   Persistent<UnboundScript> script_;
 
-  void MemoryInfo(MemoryTracker* tracker) const override {
-    tracker->TrackThis(this);
-  }
-
-  ADD_MEMORY_INFO_NAME(ContextifyScript)
-
  public:
+  SET_NO_MEMORY_INFO()
+  SET_MEMORY_INFO_NAME(ContextifyScript)
+  SET_SELF_SIZE(ContextifyScript)
+
   static void Init(Environment* env, Local<Object> target) {
     HandleScope scope(env->isolate());
     Local<String> class_name =
@@ -633,7 +632,8 @@ class ContextifyScript : public BaseObject {
     env->SetProtoMethod(script_tmpl, "runInContext", RunInContext);
     env->SetProtoMethod(script_tmpl, "runInThisContext", RunInThisContext);
 
-    target->Set(class_name, script_tmpl->GetFunction());
+    target->Set(class_name,
+                script_tmpl->GetFunction(env->context()).ToLocalChecked());
     env->set_script_context_constructor_template(script_tmpl);
   }
 

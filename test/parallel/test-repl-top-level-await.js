@@ -173,7 +173,7 @@ async function ctrlCTest() {
     { ctrl: true, name: 'c' }
   ]), [
     'await timeout(100000)\r',
-    'Thrown: Error [ERR_SCRIPT_EXECUTION_INTERRUPTED]: ' +
+    'Error [ERR_SCRIPT_EXECUTION_INTERRUPTED]: ' +
       'Script execution was interrupted by `SIGINT`.',
     common.engineSpecificMessage({
       v8: PROMPT,
