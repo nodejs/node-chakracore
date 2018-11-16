@@ -1,5 +1,163 @@
 # ChakraShim ChangeLog
 
+## 2018-11-15, node-chakracore-10.13.0
+
+### Commits
+
+* [[`71da7700a4`](https://github.com/nodejs/node-chakracore/commit/71da7700a4)] - 2018-11-15, Node-ChakraCore Version 10.13.0
+* [[`2d3beadf24`](https://github.com/nodejs/node-chakracore/commit/2d3beadf24)] - test: fix some failing tests under node-chakracore
+* [[`ffe0634da4`](https://github.com/nodejs/node-chakracore/commit/ffe0634da4)] - build: fix catch syntax with no binding parameter which node-chakracore doesn't support
+* [[`6e92743012`](https://github.com/nodejs/node-chakracore/commit/6e92743012)] - test: disable test failing on node-chakracore
+* [[`36ec8c2610`](https://github.com/nodejs/node-chakracore/commit/36ec8c2610)] - test: disable BitInt tests not supported under node-chakracore
+* [[`f02c844b91`](https://github.com/nodejs/node-chakracore/commit/f02c844b91)] - build: fix static initialization ordering problem in OptionsParser code
+* [[`2169ac47d7`](https://github.com/nodejs/node-chakracore/commit/2169ac47d7)] - test, lib: fix rest syntax unsupported in node-chakracore
+* [[`b624e59926`](https://github.com/nodejs/node-chakracore/commit/b624e59926)] - build: remove object spread which is not supported in ChakraCore
+* [[`c3cee63f65`](https://github.com/nodejs/node-chakracore/commit/c3cee63f65)] - test: fix message error tests under node-chakracore
+* [[`a62072a8a6`](https://github.com/nodejs/node-chakracore/commit/a62072a8a6)] - build: fix node_zlib.cc TTD code
+* [[`9e33b1fd3b`](https://github.com/nodejs/node-chakracore/commit/9e33b1fd3b)] - test: fix test-buffer-fill test on node-chakracore
+* [[`8643ba688d`](https://github.com/nodejs/node-chakracore/commit/8643ba688d)] - test, chakrashim: stub out promise multiple resolution handler, disable failing tests
+* [[`a85c90d863`](https://github.com/nodejs/node-chakracore/commit/a85c90d863)] - build: fix util code which was moved to inspect.js
+* [[`265f22dbe5`](https://github.com/nodejs/node-chakracore/commit/265f22dbe5)] - test: disable new worker test for node-chakracore
+* [[`eb5495f082`](https://github.com/nodejs/node-chakracore/commit/eb5495f082)] - test: skip new worker test for ChakraCore
+* [[`7b9b6f5e8b`](https://github.com/nodejs/node-chakracore/commit/7b9b6f5e8b)] - Merge tag 'v10.13.0' into v10.13.0-proposal
+* [[`b88e572371`](https://github.com/nodejs/node-chakracore/commit/b88e572371)] - chakrashim: fix shim API in TraceObject
+* [[`7e528f6e1c`](https://github.com/nodejs/node-chakracore/commit/7e528f6e1c)] - chakrashim: add v8::PrimitiveArray shim
+* [[`4a8c1ede57`](https://github.com/nodejs/node-chakracore/commit/4a8c1ede57)] - chakrashim: add v8::Date::ValueOf, fix ttd support in node_zlib
+* [[`d93a96f2d5`](https://github.com/nodejs/node-chakracore/commit/d93a96f2d5)] - chakrashim: fix CheckSignature to look up the prototype chain
+* [[`c1c9f4ffb5`](https://github.com/nodejs/node-chakracore/commit/c1c9f4ffb5)] - deps: update ChakraCore to Microsoft/ChakraCore@aa0db7087c
+* [[`407c853509`](https://github.com/nodejs/node-chakracore/commit/407c853509)] - deps: update ChakraCore to Microsoft/ChakraCore@558f84b099
+* [[`bd0799ab95`](https://github.com/nodejs/node-chakracore/commit/bd0799ab95)] - deps: update ChakraCore to Microsoft/ChakraCore@bc9e381cf0
+* [[`89902eb926`](https://github.com/nodejs/node-chakracore/commit/89902eb926)] - deps: update ChakraCore to Microsoft/ChakraCore@d6bb4cebb1
+* [[`74524940dd`](https://github.com/nodejs/node-chakracore/commit/74524940dd)] - build, chakrashim: added shim for v8::HeapStatistics::external_memory
+* [[`27b1486a4d`](https://github.com/nodejs/node-chakracore/commit/27b1486a4d)] - test, chakrashim: stub out promise multiple resolution handler, disable failing tests
+* [[`d168295114`](https://github.com/nodejs/node-chakracore/commit/d168295114)] - chakrashim, test: add shim for v8::Isolate::EnqueueMicrotask and make associated unit test pass on node-chakracore
+* [[`2fa1792f9a`](https://github.com/nodejs/node-chakracore/commit/2fa1792f9a)] - src,test: fix merge issues
+* [[`a5fe084584`](https://github.com/nodejs/node-chakracore/commit/a5fe084584)] - Fixed build break caused by (soft) merge
+* [[`d507dc3706`](https://github.com/nodejs/node-chakracore/commit/d507dc3706)] - Updating TTD options parsing to use new node_options APIs
+* [[`e0fdb65467`](https://github.com/nodejs/node-chakracore/commit/e0fdb65467)] - test: skip new incompatible test
+* [[`b9868fdd96`](https://github.com/nodejs/node-chakracore/commit/b9868fdd96)] - n-api,test: stub out function
+* [[`7f9687a363`](https://github.com/nodejs/node-chakracore/commit/7f9687a363)] - Fixed or skipped failing tests
+* [[`0062983dc8`](https://github.com/nodejs/node-chakracore/commit/0062983dc8)] - Merge tag 'v10.11.0' into v10.11.0-proposal
+* [[`c0929d6490`](https://github.com/nodejs/node-chakracore/commit/c0929d6490)] - chakrashim: add missing API
+* [[`9493df4ac4`](https://github.com/nodejs/node-chakracore/commit/9493df4ac4)] - chakrashim: enable `resourceNameToUrl` support
+* [[`99bdf0e295`](https://github.com/nodejs/node-chakracore/commit/99bdf0e295)] - chakrashim,test: add missing API
+* [[`d7670c6b24`](https://github.com/nodejs/node-chakracore/commit/d7670c6b24)] - deps: update ChakraCore to Microsoft/ChakraCore@cd45bae233
+* [[`11431a2be8`](https://github.com/nodejs/node-chakracore/commit/11431a2be8)] - deps: update ChakraCore to Microsoft/ChakraCore@0e9faf246c
+* [[`bd456ae051`](https://github.com/nodejs/node-chakracore/commit/bd456ae051)] - deps: update ChakraCore to Microsoft/ChakraCore@1987607195
+* [[`c878aa5bdf`](https://github.com/nodejs/node-chakracore/commit/c878aa5bdf)] - deps: update ChakraCore to Microsoft/ChakraCore@a457e9ec51
+* [[`7dc7487d3d`](https://github.com/nodejs/node-chakracore/commit/7dc7487d3d)] - test: skip GC behavior test
+* [[`45e8701863`](https://github.com/nodejs/node-chakracore/commit/45e8701863)] - test: fix chakracore issues
+* [[`3139c530cf`](https://github.com/nodejs/node-chakracore/commit/3139c530cf)] - chakrashim,src: new shim APIs
+* [[`f134735bda`](https://github.com/nodejs/node-chakracore/commit/f134735bda)] - n-api: add missing include
+* [[`9c2e4b2aeb`](https://github.com/nodejs/node-chakracore/commit/9c2e4b2aeb)] - test: mark `test-os-process-priority` flaky
+* [[`ee050f8315`](https://github.com/nodejs/node-chakracore/commit/ee050f8315)] - test: disabling test using shared array buffers and fixing message
+* [[`0d67655d86`](https://github.com/nodejs/node-chakracore/commit/0d67655d86)] - src,test: enable bigint tests on v8
+* [[`a9097d6f70`](https://github.com/nodejs/node-chakracore/commit/a9097d6f70)] - tools,doc: apilinks should handle root scenarios
+* [[`64bb4171f4`](https://github.com/nodejs/node-chakracore/commit/64bb4171f4)] - test: disable parts of the updated util.inspect tests for chakracore
+* [[`41d90cbbb6`](https://github.com/nodejs/node-chakracore/commit/41d90cbbb6)] - chakrashim,test: fix lint issues
+* [[`adbe1ab673`](https://github.com/nodejs/node-chakracore/commit/adbe1ab673)] - test: fixing test failures due to different error messages
+* [[`43a9606a65`](https://github.com/nodejs/node-chakracore/commit/43a9606a65)] - deps: update ChakraCore to Microsoft/ChakraCore@6e997006ba
+* [[`fd8c67b63e`](https://github.com/nodejs/node-chakracore/commit/fd8c67b63e)] - deps: stub a couple new methods in Chakra shim
+* [[`dffae3088b`](https://github.com/nodejs/node-chakracore/commit/dffae3088b)] - test: disabling unsupported parts of tests
+* [[`4dc7305662`](https://github.com/nodejs/node-chakracore/commit/4dc7305662)] - test: skip some more things Chakra doesn't support
+* [[`774951c58a`](https://github.com/nodejs/node-chakracore/commit/774951c58a)] - lib: shim BigInt function used by util.inspect for chakracore
+* [[`895bdc0a3b`](https://github.com/nodejs/node-chakracore/commit/895bdc0a3b)] - src,test: fix merge issues
+* [[`d1ed27efbb`](https://github.com/nodejs/node-chakracore/commit/d1ed27efbb)] - test: update some error messages
+* [[`67b92b0a99`](https://github.com/nodejs/node-chakracore/commit/67b92b0a99)] - Merge tag 'v10.10.0' into 10.10.0-proposal
+* [[`9b4011db82`](https://github.com/nodejs/node-chakracore/commit/9b4011db82)] - chakrashim: fix lint issue
+* [[`85f00925f3`](https://github.com/nodejs/node-chakracore/commit/85f00925f3)] - deps: update ChakraCore to Microsoft/ChakraCore@0f40413d2e
+* [[`13e1f52cd4`](https://github.com/nodejs/node-chakracore/commit/13e1f52cd4)] - deps: update ChakraCore to Microsoft/ChakraCore@34a1ec989c
+* [[`23e22df914`](https://github.com/nodejs/node-chakracore/commit/23e22df914)] - deps: update ChakraCore to Microsoft/ChakraCore@25470e4f60
+* [[`7295e0b177`](https://github.com/nodejs/node-chakracore/commit/7295e0b177)] - deps: update ChakraCore to Microsoft/ChakraCore@ebe9f3f33f
+* [[`da539e9658`](https://github.com/nodejs/node-chakracore/commit/da539e9658)] - chakrashim: update v8-version.h
+* [[`e564d08ffb`](https://github.com/nodejs/node-chakracore/commit/e564d08ffb)] - deps: stub a couple new methods in Chakra shim
+* [[`3196b4e230`](https://github.com/nodejs/node-chakracore/commit/3196b4e230)] - deps: update Chakra shim for Concat
+* [[`48e03133e9`](https://github.com/nodejs/node-chakracore/commit/48e03133e9)] - deps: update v8.h to match upstream
+* [[`4fd0f26a30`](https://github.com/nodejs/node-chakracore/commit/4fd0f26a30)] - chakrashim,test: fix lint issues
+* [[`7413fc6697`](https://github.com/nodejs/node-chakracore/commit/7413fc6697)] - deps: update ChakraCore to Microsoft/ChakraCore@70aa49a49e
+* [[`24853fdd1c`](https://github.com/nodejs/node-chakracore/commit/24853fdd1c)] - deps: improving support for GetPropertyNames
+* [[`0efee2419f`](https://github.com/nodejs/node-chakracore/commit/0efee2419f)] - deps: update ChakraCore to Microsoft/ChakraCore@97eeb2faa4
+* [[`aa240adf4a`](https://github.com/nodejs/node-chakracore/commit/aa240adf4a)] - deps: update ChakraCore to Microsoft/ChakraCore@44a59f25c3
+* [[`e7c7eafabc`](https://github.com/nodejs/node-chakracore/commit/e7c7eafabc)] - deps: upgrade openssl definitions for WOA
+* [[`ed3e86963c`](https://github.com/nodejs/node-chakracore/commit/ed3e86963c)] - test: skip unsupported test in ChakraCore
+* [[`03411b1196`](https://github.com/nodejs/node-chakracore/commit/03411b1196)] - test: disable test-tracing-no-crash for ChakraCore
+* [[`fb8ed8211a`](https://github.com/nodejs/node-chakracore/commit/fb8ed8211a)] - lint: fix missing semicolon in updated json.js
+* [[`4fdb3d280d`](https://github.com/nodejs/node-chakracore/commit/4fdb3d280d)] - tools: modify doc tool to eliminate usage of RegExp /s flag
+* [[`b1dd45b048`](https://github.com/nodejs/node-chakracore/commit/b1dd45b048)] - lib: remove use of optional catch binding in recoverable.js
+* [[`52bd7dbf21`](https://github.com/nodejs/node-chakracore/commit/52bd7dbf21)] - Merge tag 'v10.9.0' into 10.9.0-proposal
+* [[`f920bd277f`](https://github.com/nodejs/node-chakracore/commit/f920bd277f)] - deps: update ChakraCore to Microsoft/ChakraCore@8f9071940a
+* [[`8219ecbd1b`](https://github.com/nodejs/node-chakracore/commit/8219ecbd1b)] - deps: update ChakraCore to Microsoft/ChakraCore@2c4085bdb1
+* [[`a2ca496fe3`](https://github.com/nodejs/node-chakracore/commit/a2ca496fe3)] - deps: update ChakraCore to Microsoft/ChakraCore@3a7377de77
+* [[`dc75228e81`](https://github.com/nodejs/node-chakracore/commit/dc75228e81)] - deps: update ChakraCore to Microsoft/ChakraCore@4a6c0ec5a7
+* [[`0e90964896`](https://github.com/nodejs/node-chakracore/commit/0e90964896)] - deps: update ChakraCore to Microsoft/ChakraCore@817a44fa1d
+* [[`586cde901c`](https://github.com/nodejs/node-chakracore/commit/586cde901c)] - deps: update ChakraCore to Microsoft/ChakraCore@51c6097dd4
+* [[`28a6c92e6e`](https://github.com/nodejs/node-chakracore/commit/28a6c92e6e)] - deps: update ChakraCore to Microsoft/ChakraCore@01fe7dcbf4
+* [[`45e96811cc`](https://github.com/nodejs/node-chakracore/commit/45e96811cc)] - test: clean up status files
+* [[`07650f17f1`](https://github.com/nodejs/node-chakracore/commit/07650f17f1)] - test: clean up skipped tests
+* [[`531905ce94`](https://github.com/nodejs/node-chakracore/commit/531905ce94)] - lib,src,test: cleanup chakracore customization
+* [[`ca59ca83fa`](https://github.com/nodejs/node-chakracore/commit/ca59ca83fa)] - benchmark: disable trace benchmark for chakracore
+* [[`15f36b29d3`](https://github.com/nodejs/node-chakracore/commit/15f36b29d3)] - trace_events,chakrashim: disable GetExtrasBindingObject in trace events for chakracore
+* [[`462acfafc2`](https://github.com/nodejs/node-chakracore/commit/462acfafc2)] - napi: port threadsafe fix to napi_jsrt
+* [[`d9bcec783f`](https://github.com/nodejs/node-chakracore/commit/d9bcec783f)] - src,test: stub out bigint
+* [[`4edf45b222`](https://github.com/nodejs/node-chakracore/commit/4edf45b222)] - deps: update ChakraCore to Microsoft/ChakraCore@47df46c207
+* [[`717d09d74d`](https://github.com/nodejs/node-chakracore/commit/717d09d74d)] - deps: update ChakraCore to Microsoft/ChakraCore@99ea9f453f
+* [[`4b08afa0cd`](https://github.com/nodejs/node-chakracore/commit/4b08afa0cd)] - deps: update ChakraCore to Microsoft/ChakraCore@d28a85a9d0
+* [[`9d2615feaa`](https://github.com/nodejs/node-chakracore/commit/9d2615feaa)] - deps: update ChakraCore to Microsoft/ChakraCore@6ada16b6a4
+* [[`a213aed8ad`](https://github.com/nodejs/node-chakracore/commit/a213aed8ad)] - deps: update ChakraCore to Microsoft/ChakraCore@5a840e395c
+* [[`b95f591f64`](https://github.com/nodejs/node-chakracore/commit/b95f591f64)] - deps: update ChakraCore to Microsoft/ChakraCore@80b8ddeba9
+* [[`a4d68c82dd`](https://github.com/nodejs/node-chakracore/commit/a4d68c82dd)] - deps: update ChakraCore to Microsoft/ChakraCore@0625d4a337
+* [[`3f8e7d34bd`](https://github.com/nodejs/node-chakracore/commit/3f8e7d34bd)] - deps: update ChakraCore to Microsoft/ChakraCore@c25ff8bfbd
+* [[`ae63ceaf47`](https://github.com/nodejs/node-chakracore/commit/ae63ceaf47)] - deps: update ChakraCore to Microsoft/ChakraCore@594381adf5
+* [[`ab9f572857`](https://github.com/nodejs/node-chakracore/commit/ab9f572857)] - deps: update ChakraCore to Microsoft/ChakraCore@cbb6c17275
+* [[`a781d72285`](https://github.com/nodejs/node-chakracore/commit/a781d72285)] - deps: update ChakraCore to Microsoft/ChakraCore@2017ecfcd2
+* [[`463341e820`](https://github.com/nodejs/node-chakracore/commit/463341e820)] - deps: update ChakraCore to Microsoft/ChakraCore@9c23d506ad
+* [[`4742c06c2f`](https://github.com/nodejs/node-chakracore/commit/4742c06c2f)] - deps: update ChakraCore to Microsoft/ChakraCore@eebca86f88
+* [[`5ca8f1c0dd`](https://github.com/nodejs/node-chakracore/commit/5ca8f1c0dd)] - deps: update ChakraCore to Microsoft/ChakraCore@4cd0bccad7
+* [[`022d08ba89`](https://github.com/nodejs/node-chakracore/commit/022d08ba89)] - deps: update ChakraCore to Microsoft/ChakraCore@6127540787
+* [[`3750766bb7`](https://github.com/nodejs/node-chakracore/commit/3750766bb7)] - deps: update ChakraCore to Microsoft/ChakraCore@a3c6bac29a
+* [[`ef423c753b`](https://github.com/nodejs/node-chakracore/commit/ef423c753b)] - deps: update ChakraCore to Microsoft/ChakraCore@22ef6955fb
+* [[`b586310868`](https://github.com/nodejs/node-chakracore/commit/b586310868)] - deps: update ChakraCore to Microsoft/ChakraCore@18405964fb
+* [[`e11d73b9f8`](https://github.com/nodejs/node-chakracore/commit/e11d73b9f8)] - deps: update ChakraCore to Microsoft/ChakraCore@27f1c29dc6
+* [[`e9eb11174a`](https://github.com/nodejs/node-chakracore/commit/e9eb11174a)] - deps: update ChakraCore to Microsoft/ChakraCore@7c4a6eab91
+* [[`85bbdd07c7`](https://github.com/nodejs/node-chakracore/commit/85bbdd07c7)] - deps: update ChakraCore to Microsoft/ChakraCore@ac99d70d08
+* [[`94c741334d`](https://github.com/nodejs/node-chakracore/commit/94c741334d)] - deps: update ChakraCore to Microsoft/ChakraCore@28040fedf6
+* [[`e3d71956c2`](https://github.com/nodejs/node-chakracore/commit/e3d71956c2)] - deps: update ChakraCore to Microsoft/ChakraCore@01e1f70c14
+* [[`afffa15e2d`](https://github.com/nodejs/node-chakracore/commit/afffa15e2d)] - deps: update ChakraCore to Microsoft/ChakraCore@11c5783d12
+* [[`521b3245ee`](https://github.com/nodejs/node-chakracore/commit/521b3245ee)] - deps: update ChakraCore to Microsoft/ChakraCore@6f03ee05ac
+* [[`2cbfd4236e`](https://github.com/nodejs/node-chakracore/commit/2cbfd4236e)] - deps: update ChakraCore to Microsoft/ChakraCore@153b5c60a2
+* [[`1935684d18`](https://github.com/nodejs/node-chakracore/commit/1935684d18)] - deps: update ChakraCore to Microsoft/ChakraCore@00e7f7e370
+* [[`4a8577410f`](https://github.com/nodejs/node-chakracore/commit/4a8577410f)] - deps: update ChakraCore to Microsoft/ChakraCore@a9358ceb39
+* [[`a70ea4ab8e`](https://github.com/nodejs/node-chakracore/commit/a70ea4ab8e)] - deps: update ChakraCore to Microsoft/ChakraCore@2451fe457a
+* [[`f9dce6ea7c`](https://github.com/nodejs/node-chakracore/commit/f9dce6ea7c)] - deps: update ChakraCore to Microsoft/ChakraCore@55c996040e
+* [[`88a7ef1021`](https://github.com/nodejs/node-chakracore/commit/88a7ef1021)] - deps: update ChakraCore to Microsoft/ChakraCore@1d68ae36d6
+* [[`9672cb1018`](https://github.com/nodejs/node-chakracore/commit/9672cb1018)] - deps: update ChakraCore to Microsoft/ChakraCore@1906b50e90
+* [[`b8c716edb6`](https://github.com/nodejs/node-chakracore/commit/b8c716edb6)] - deps: update ChakraCore to Microsoft/ChakraCore@a632b6ffcd
+* [[`95526da13b`](https://github.com/nodejs/node-chakracore/commit/95526da13b)] - deps: update ChakraCore to Microsoft/ChakraCore@979656006e
+* [[`c3b7cba251`](https://github.com/nodejs/node-chakracore/commit/c3b7cba251)] - deps: update ChakraCore to Microsoft/ChakraCore@693bb72161
+* [[`2440d55bb0`](https://github.com/nodejs/node-chakracore/commit/2440d55bb0)] - Merge tag 'v10.8.0' into 10.8.0-proposal
+* [[`2793eee876`](https://github.com/nodejs/node-chakracore/commit/2793eee876)] - Fixed bigint tests
+* [[`421d296231`](https://github.com/nodejs/node-chakracore/commit/421d296231)] - test: remove dotall (s) flag from a regex literal
+* [[`a0ffc6e36e`](https://github.com/nodejs/node-chakracore/commit/a0ffc6e36e)] - test: skip new worker test
+* [[`deffadb7af`](https://github.com/nodejs/node-chakracore/commit/deffadb7af)] - test: stub BigUint64Array in Javascript and disable a bigint test in node-chakracore
+* [[`a55b745174`](https://github.com/nodejs/node-chakracore/commit/a55b745174)] - buffer,test: remove species workaround
+* [[`2123f01f8b`](https://github.com/nodejs/node-chakracore/commit/2123f01f8b)] - test: skip new tests for ChakraCore
+* [[`22f03cfea1`](https://github.com/nodejs/node-chakracore/commit/22f03cfea1)] - Fixed assert messages and skipped three more tests
+* [[`c846a1669d`](https://github.com/nodejs/node-chakracore/commit/c846a1669d)] - deps: update ChakraCore to Microsoft/ChakraCore@75ebad82b0
+* [[`7ad9c4eec2`](https://github.com/nodejs/node-chakracore/commit/7ad9c4eec2)] - deps: update ChakraCore to Microsoft/ChakraCore@032c0a73fe
+* [[`f3bf93c650`](https://github.com/nodejs/node-chakracore/commit/f3bf93c650)] - deps: update ChakraCore to Microsoft/ChakraCore@6775a108a8
+* [[`65ee9bfc86`](https://github.com/nodejs/node-chakracore/commit/65ee9bfc86)] - deps: update ChakraCore to Microsoft/ChakraCore@d80f172466
+* [[`3c918111ca`](https://github.com/nodejs/node-chakracore/commit/3c918111ca)] - deps: update ChakraCore to Microsoft/ChakraCore@c697881c16
+* [[`8293f5ecb2`](https://github.com/nodejs/node-chakracore/commit/8293f5ecb2)] - deps: update ChakraCore to Microsoft/ChakraCore@8a4df57b2f
+* [[`ca5ea829a7`](https://github.com/nodejs/node-chakracore/commit/ca5ea829a7)] - deps: update ChakraCore to Microsoft/ChakraCore@17a9de8f28
+* [[`d93e64039e`](https://github.com/nodejs/node-chakracore/commit/d93e64039e)] - Added EmbedderGraph stubs to chakrashim
+* [[`c0e0d902ef`](https://github.com/nodejs/node-chakracore/commit/c0e0d902ef)] - deps: update ChakraCore to Microsoft/ChakraCore@dc884d277e
+* [[`27654479cf`](https://github.com/nodejs/node-chakracore/commit/27654479cf)] - deps: update ChakraCore to Microsoft/ChakraCore@93906498f1
+* [[`bff01c04a0`](https://github.com/nodejs/node-chakracore/commit/bff01c04a0)] - deps: update ChakraCore to Microsoft/ChakraCore@72719d8fa4
+* [[`fc06a2d545`](https://github.com/nodejs/node-chakracore/commit/fc06a2d545)] - deps: update ChakraCore to Microsoft/ChakraCore@81632c75c9
+* [[`ec71a4da04`](https://github.com/nodejs/node-chakracore/commit/ec71a4da04)] - deps: update ChakraCore to Microsoft/ChakraCore@8ac3accaf2
+* [[`fe3e88274b`](https://github.com/nodejs/node-chakracore/commit/fe3e88274b)] - Merge tag 'v10.7.0' into 10.7.0-proposal
+* [[`81acd105bc`](https://github.com/nodejs/node-chakracore/commit/81acd105bc)] - Working on 10.6.1
+
 ## 2018-07-20, node-chakracore-v10.6.0
 
 ### Commits
