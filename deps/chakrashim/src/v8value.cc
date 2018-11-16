@@ -351,8 +351,16 @@ Maybe<double> Value::NumberValue(Local<Context> context) const {
 
 Maybe<int64_t> Value::IntegerValue(Local<Context> context) const {
   Maybe<double> maybe = NumberValue(context);
-  return maybe.IsNothing() ?
-    Nothing<int64_t>() : Just(static_cast<int64_t>(maybe.FromJust()));
+  if (maybe.IsNothing()) {
+      return Nothing<int64_t>();
+  }
+
+  double value = maybe.FromJust();
+  if (std::isnan(value)) {
+      return Just<int64_t>(0);
+  }
+
+  return Just(static_cast<int64_t>(value));
 }
 
 Maybe<uint32_t> Value::Uint32Value(Local<Context> context) const {

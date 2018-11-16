@@ -45,6 +45,7 @@ test-inspector-break-when-eval : SKIP
 test-inspector-contexts : SKIP
 test-inspector-scriptparsed-context : SKIP
 test-inspector-stop-profile-after-done : SKIP
+test-inspector-resource-name-to-url : SKIP
 
 # These tests require worker not implemented by node-chakracore
 test-benchmark-worker : SKIP
