@@ -135,17 +135,20 @@ async function ordinaryTests() {
       }),
       { line: 0 } ],
     [ 'gen', '[GeneratorFunction: gen]' ],
-    [ 'return 42; await 5;',
-      common.engineSpecificMessage({
-        v8: 'SyntaxError: Illegal return statement',
-        chakracore: ''
-      }),
-      { line: 3 } ],
     [ 'let o = await 1, p', 'undefined' ],
     [ 'p', 'undefined' ],
     [ 'let q = 1, s = await 2', 'undefined' ],
     [ 's', '2' ]
   ];
+
+  if (!common.isChakraEngine) {
+    testCases.push([ 'return 42; await 5;',
+      common.engineSpecificMessage({
+        v8: 'SyntaxError: Illegal return statement',
+        chakracore: ''
+      }),
+      { line: 3 } ])
+  }
 
   for (const [input, expected, options = {}] of testCases) {
     console.log(`Testing ${input}`);
