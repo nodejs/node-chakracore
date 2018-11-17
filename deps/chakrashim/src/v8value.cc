@@ -356,7 +356,7 @@ Maybe<int64_t> Value::IntegerValue(Local<Context> context) const {
   }
 
   double value = maybe.FromJust();
-  if (std::isnan(value)) {
+  if (isnan(value)) {
       return Just<int64_t>(0);
   }
 
