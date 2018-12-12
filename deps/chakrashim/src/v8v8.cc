@@ -106,7 +106,9 @@ void Isolate::SetFatalErrorHandler(FatalErrorCallback that) {
 }
 
 void V8::SetFlagsFromString(const char* str, int length) {
-  // CHAKRA-TODO
+  int argc = 2;
+  char* argv[2] = {nullptr, (char*)str};
+  SetFlagsFromCommandLine(&argc, argv, false);
 }
 
 static bool equals(const char* str, const char* pat) {
