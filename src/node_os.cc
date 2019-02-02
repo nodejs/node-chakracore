@@ -381,6 +381,8 @@ static void GetUserInfo(const FunctionCallbackInfo<Value>& args) {
     return args.GetReturnValue().SetUndefined();
   }
 
+  OnScopeLeave free_passwd([&]() { uv_os_free_passwd(&pwd); });
+
   Local<Value> error;
 
   Local<Value> uid = Number::New(env->isolate(), pwd.uid);
@@ -402,7 +404,6 @@ static void GetUserInfo(const FunctionCallbackInfo<Value>& args) {
 
   if (username.IsEmpty() || homedir.IsEmpty() || shell.IsEmpty()) {
     CHECK(!error.IsEmpty());
-    uv_os_free_passwd(&pwd);
     env->isolate()->ThrowException(error);
     return;
   }
