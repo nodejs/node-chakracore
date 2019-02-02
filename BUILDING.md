@@ -24,6 +24,7 @@ file a new issue.
     * [Prerequisites](#prerequisites)
     * [Building Node.js](#building-nodejs-1)
     * [Running Tests](#running-tests)
+    * [Running Coverage](#running-coverage)
     * [Building the documentation](#building-the-documentation)
     * [Building a debug build](#building-a-debug-build)
   * [Windows](#windows-1)
@@ -48,7 +49,7 @@ file a new issue.
 ## Supported platforms
 
 This list of supported platforms is current as of the branch/release to
-which it is attached.
+which it belongs.
 
 ### Input
 
@@ -56,21 +57,20 @@ Node.js relies on V8 and libuv. We adopt a subset of their supported platforms.
 
 ### Strategy
 
-Support is divided into three tiers:
+There are three support tiers:
 
 * **Tier 1**: Full test coverage and maintenance by the Node.js core team and
   the broader community.
-* **Tier 2**: Full test coverage but more limited maintenance,
-  often provided by the vendor of the platform.
-* **Experimental**: May not compile reliably or test suite may not pass.
-  These are often working to be promoted to Tier 2 but are not quite ready.
-  There is at least one individual actively providing maintenance and the team
-  is striving to broaden quality and reliability of support.
+* **Tier 2**: Full test coverage. Limited maintenance, often provided by the
+  vendor of the platform.
+* **Experimental**: May not compile or test suite may not pass.
+  These are often approaching Tier 2 support but are not quite ready.
+  There is at least one individual providing maintenance.
 
 ### Supported platforms
 
 The community does not build or test against end-of-life distributions (EoL).
-Thus, we do not recommend that you use Node on end-of-life or unsupported
+Thus, we do not recommend that you use Node.js on end-of-life or unsupported
 platforms in production.
 
 | System       | Support type | Version                         | Architectures    | Notes                         |
@@ -223,6 +223,13 @@ $ make -j4 test
 `make -j4 test` does a full check on the codebase, including running linters and
 documentation tests.
 
+Make sure the linter does not report any issues and that all tests pass. Please
+do not submit patches that fail either check.
+
+If you want to run the linter without running tests, use
+`make lint`/`vcbuild lint`. It will run both JavaScript linting and
+C++ linting.
+
 If you are updating tests and just want to run a single test to check it:
 
 ```text
@@ -249,18 +256,35 @@ You can usually run tests directly with node:
 $ ./node ./test/parallel/test-stream2-transform.js
 ```
 
-Optionally, continue below.
+Remember to recompile with `make -j4` in between test runs if you change code in
+the `lib` or `src` directories.
 
-To run the tests and generate code coverage reports:
+#### Running Coverage
+
+It's good practice to ensure any code you add or change is covered by tests.
+You can do so by running the test suite with coverage enabled:
 
 ```console
 $ ./configure --coverage
 $ make coverage
 ```
 
-This will generate coverage reports for both JavaScript and C++ tests (if you
-only want to run the JavaScript tests then you do not need to run the first
-command `./configure --coverage`).
+A detailed coverage report will be written to `coverage/index.html` for
+JavaScript coverage and to `coverage/cxxcoverage.html` for C++ coverage
+(if you only want to run the JavaScript tests then you do not need to run
+the first command `./configure --coverage`).
+
+_Generating a test coverage report can take several minutes._
+
+To collect coverage for a subset of tests you can set the `CI_JS_SUITES` and
+`CI_NATIVE_SUITES` variables:
+
+```text
+$ CI_JS_SUITES=child-process CI_NATIVE_SUITES= make coverage
+```
+
+The above command executes tests for the `child-process` subsystem and
+outputs the resulting coverage report.
 
 The `make coverage` command downloads some tools to the project root directory
 and overwrites the `lib/` directory. To clean up after generating the coverage
