@@ -5,14 +5,15 @@ os: linux
 matrix:
   include:
     - name: "Linter"
-      node_js: "latest"
+      language: node_js
+      node_js: "node"
       env:
         - NODE=$(which node)
       script:
         - make lint
         # Lint the first commit in the PR.
         - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
-            bash tools/lint-pr-commit-message.sh ${TRAVIS_PULL_REQUEST};
+            bash tools/lint-pr-commit-message.sh ${TRAVIS_PULL_REQUEST} || true;
           fi
     - name: "Test Suite"
       addons:
