@@ -34,7 +34,7 @@ let invalidFd = 2;
 // Get first known bad file descriptor.
 try {
   while (fs.fstatSync(++invalidFd));
-} catch {
+} catch (e) {
   // do nothing; we now have an invalid fd
 }
 

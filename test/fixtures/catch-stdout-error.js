@@ -22,7 +22,7 @@
 function write() {
   try {
     process.stdout.write('Hello, world\n');
-  } catch {
+  } catch (ex) {
     throw new Error('this should never happen');
   }
   setImmediate(function() {

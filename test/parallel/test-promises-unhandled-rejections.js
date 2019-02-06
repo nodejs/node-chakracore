@@ -681,7 +681,7 @@ asyncTest('Throwing an error inside a rejectionHandled handler goes to' +
   setTimeout(function() {
     try {
       p.catch(function() {});
-    } catch {
+    } catch (e) {
       done(new Error('fail'));
     }
   }, 1);

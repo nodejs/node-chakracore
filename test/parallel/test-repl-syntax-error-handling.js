@@ -63,7 +63,7 @@ function child() {
   let caught;
   try {
     vm.runInThisContext('haf!@##&$!@$*!@', { displayErrors: false });
-  } catch {
+  } catch (e) {
     caught = true;
   }
   assert(caught);

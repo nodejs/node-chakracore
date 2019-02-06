@@ -55,7 +55,7 @@ function runTest() {
   });
 
   rs.on('end', function() {
-    try { fs.unlinkSync(filename); } catch {}
+    try { fs.unlinkSync(filename); } catch (e) {}
     // MB/sec
     bench.end(bytes / (1024 * 1024));
   });
@@ -74,7 +74,7 @@ function makeFile() {
     buf.fill('x');
   }
 
-  try { fs.unlinkSync(filename); } catch {}
+  try { fs.unlinkSync(filename); } catch (e) {}
   var w = 1024;
   const ws = fs.createWriteStream(filename);
   ws.on('close', runTest);

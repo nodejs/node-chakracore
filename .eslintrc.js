@@ -17,7 +17,7 @@ Module._findPath = (request, paths, isMain) => {
   if (!r && hacks.includes(request)) {
     try {
       return require.resolve(`./tools/node_modules/${request}`);
-    } catch {
+    } catch (e) {
       return require.resolve(
         `./tools/node_modules/eslint/node_modules/${request}`);
     }

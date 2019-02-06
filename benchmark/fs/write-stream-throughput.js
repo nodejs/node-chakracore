@@ -33,7 +33,7 @@ function main({ dur, encodingType, size }) {
       throw new Error(`invalid encodingType: ${encodingType}`);
   }
 
-  try { fs.unlinkSync(filename); } catch {}
+  try { fs.unlinkSync(filename); } catch (e) {}
 
   var started = false;
   var ended = false;
@@ -45,7 +45,7 @@ function main({ dur, encodingType, size }) {
   f.on('finish', function() {
     ended = true;
     const written = fs.statSync(filename).size / 1024;
-    try { fs.unlinkSync(filename); } catch {}
+    try { fs.unlinkSync(filename); } catch (e) {}
     bench.end(written / 1024);
   });
 

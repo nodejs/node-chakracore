@@ -55,7 +55,7 @@ stream.on('finish', common.mustCall(function() {
 function destroy() {
   try {
     fs.unlinkSync(file);
-  } catch {
+  } catch (e) {
     // it may not exist
   }
 }
