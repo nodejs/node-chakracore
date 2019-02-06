@@ -11,7 +11,9 @@ matrix:
       script:
         - make lint
         # Lint the first commit in the PR.
-        - \[ -z "$TRAVIS_COMMIT_RANGE" \] || (echo -e '\nLinting the commit message according to the guidelines at https://goo.gl/p2fr5Q\n' && git log $TRAVIS_COMMIT_RANGE --pretty=format:'%h' --no-merges | tail -1 | xargs npx -q core-validate-commit --no-validate-metadata)
+        - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
+            bash tools/lint-pr-commit-message.sh ${TRAVIS_PULL_REQUEST};
+          fi
     - name: "Test Suite"
       addons:
         apt:
