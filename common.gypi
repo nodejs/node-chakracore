@@ -139,7 +139,6 @@
   ],
 
   'target_defaults': {
-    'defines': ['NODE_ENGINE="<(node_engine)"'],
     'default_configuration': 'Release',
     'configurations': {
       'Debug': {
@@ -316,6 +315,7 @@
     'defines': [
       'V8_DEPRECATION_WARNINGS',
       'V8_IMMINENT_DEPRECATION_WARNINGS',
+      'NODE_ENGINE="<(node_engine)"',
     ],
 
     # Forcibly disable -Werror.  We support a wide range of compilers, it's
