@@ -16,7 +16,7 @@ const { spawnSync } = require('child_process');
 
 const engineArgs = [];
 if (!common.isChakraEngine) {
-  engineArgs.push('--stack_size=75');
+  engineArgs.push('--stack_size=150');
 }
 
 const ret = spawnSync(
