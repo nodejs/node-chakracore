@@ -493,27 +493,33 @@ policies and contribution forms [3].
     };
 
     function create_test_environment() {
-        if ('document' in global_scope) {
+        if ('document' in global_scope &&
+            global_scope.hasOwnProperty('document')) {
             return new WindowTestEnvironment();
         }
         if ('DedicatedWorkerGlobalScope' in global_scope &&
+            global_scope.hasOwnProperty('DedicatedWorkerGlobalScope') &&
             global_scope instanceof DedicatedWorkerGlobalScope) {
             return new DedicatedWorkerTestEnvironment();
         }
         if ('SharedWorkerGlobalScope' in global_scope &&
+            global_scope.hasOwnProperty('SharedWorkerGlobalScope') &&
             global_scope instanceof SharedWorkerGlobalScope) {
             return new SharedWorkerTestEnvironment();
         }
         if ('ServiceWorkerGlobalScope' in global_scope &&
+            global_scope.hasOwnProperty('ServiceWorkerGlobalScope') &&
             global_scope instanceof ServiceWorkerGlobalScope) {
             return new ServiceWorkerTestEnvironment();
         }
         if ('WorkerGlobalScope' in global_scope &&
+            global_scope.hasOwnProperty('WorkerGlobalScope') &&
             global_scope instanceof WorkerGlobalScope) {
             return new DedicatedWorkerTestEnvironment();
         }
 
-        if (!('self' in global_scope)) {
+        if (!('self' in global_scope &&
+            global_scope.hasOwnProperty('self'))) {
             return new ShellTestEnvironment();
         }
 
