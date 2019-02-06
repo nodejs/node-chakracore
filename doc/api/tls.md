@@ -811,14 +811,15 @@ decrease overall server throughput.
 added: v0.8.4
 -->
 
-* `hostname` {string} The hostname to verify the certificate against
+* `hostname` {string} The host name or IP address to verify the certificate
+  against.
 * `cert` {Object} An object representing the peer's certificate. The returned
   object has some properties corresponding to the fields of the certificate.
 * Returns: {Error|undefined}
 
 Verifies the certificate `cert` is issued to `hostname`.
 
-Returns {Error} object, populating it with the reason, host, and cert on
+Returns {Error} object, populating it with `reason`, `host`, and `cert` on
 failure. On success, returns {undefined}.
 
 This function can be overwritten by providing alternative function as part of
@@ -906,7 +907,10 @@ changes:
     protocol name. Passing an array is usually much simpler, e.g.
     `['hello', 'world']`.
   * `servername`: {string} Server name for the SNI (Server Name Indication) TLS
-    extension. It must be a host name, and not an IP address.
+    extension. It is the name of the host being connected to, and must be a host
+    name, and not an IP address. It can be used by a multi-homed server to
+    choose the correct certificate to present to the client, see the
+    `SNICallback` option to [`tls.createServer()`][].
   * `checkServerIdentity(servername, cert)` {Function} A callback function
     to be used (instead of the builtin `tls.checkServerIdentity()` function)
     when checking the server's hostname (or the provided `servername` when
