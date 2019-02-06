@@ -19,7 +19,8 @@ if (common.hasIntl) {
 expected_keys.push(
   process.versions.llhttp === undefined ? 'http_parser' : 'llhttp');
 
-expected_keys.push(process.jsEngine || 'v8');
+const jsEngine = process.jsEngine || 'v8';
+expected_keys.push(jsEngine);
 
 expected_keys.sort();
 const actual_keys = Object.keys(process.versions).sort();
