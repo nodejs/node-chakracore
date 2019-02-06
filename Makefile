@@ -205,7 +205,7 @@ coverage-build: all
 	if [ ! -d node_modules/nyc ]; then \
 		$(NODE) ./deps/npm install nyc@13 --no-save --no-package-lock; fi
 	if [ ! -d gcovr ]; then git clone -b 3.4 --depth=1 \
-		--single-branch git://github.com/gcovr/gcovr.git; fi
+		--single-branch https://github.com/gcovr/gcovr.git; fi
 	if [ ! -d build ]; then git clone --depth=1 \
 		--single-branch https://github.com/nodejs/build.git; fi
 	if [ ! -f gcovr/scripts/gcovr.orig ]; then \
@@ -333,16 +333,16 @@ ifeq ($(OSTYPE),aix)
 DOCBUILDSTAMP_PREREQS := $(DOCBUILDSTAMP_PREREQS) out/$(BUILDTYPE)/node.exp
 endif
 
-node_use_openssl = $(shell $(call available-node,"-p" \
-		   "process.versions.openssl != undefined"))
+node_use_openssl = $(call available-node,"-p" \
+		   "process.versions.openssl != undefined")
 test/addons/.docbuildstamp: $(DOCBUILDSTAMP_PREREQS) tools/doc/node_modules
-ifeq ($(node_use_openssl),true)
-	$(RM) -r test/addons/??_*/
-	[ -x $(NODE) ] && $(NODE) $< || node $<
-	touch $@
-else
-	@echo "Skipping .docbuildstamp (no crypto)"
-endif
+	@if [ "$(shell $(node_use_openssl))" != "true" ]; then \
+		echo "Skipping .docbuildstamp (no crypto)"; \
+	else \
+		$(RM) -r test/addons/??_*/; \
+		[ -x $(NODE) ] && $(NODE) $< || node $< ; \
+		touch $@; \
+  fi
 
 ADDONS_BINDING_GYPS := \
 	$(filter-out test/addons/??_*/binding.gyp, \
@@ -610,11 +610,11 @@ apidocs_json = $(addprefix out/,$(apidoc_sources:.md=.json))
 apiassets = $(subst api_assets,api/assets,$(addprefix out/,$(wildcard doc/api_assets/*)))
 
 tools/doc/node_modules: tools/doc/package.json
-ifeq ($(node_use_openssl),true)
-	cd tools/doc && $(call available-node,$(run-npm-ci))
-else
-	@echo "Skipping tools/doc/node_modules (no crypto)"
-endif
+	@if [ "$(shell $(node_use_openssl))" != "true" ]; then \
+		echo "Skipping tools/doc/node_modules (no crypto)"; \
+	else \
+		cd tools/doc && $(call available-node,$(run-npm-ci)) \
+  fi
 
 .PHONY: doc-only
 doc-only: tools/doc/node_modules \

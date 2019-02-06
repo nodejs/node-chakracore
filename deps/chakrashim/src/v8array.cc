@@ -39,6 +39,21 @@ Local<Array> Array::New(Isolate* isolate, int length) {
   return Local<Array>::New(newArrayRef);
 }
 
+Local<Array> Array::New(Isolate* isolate, Local<Value>* elements,
+                        size_t length) {
+  Local<Array> arr = Array::New(isolate, length);
+
+  if (elements == nullptr) {
+    return arr;
+  }
+
+  for (uint32_t index = 0; index < length; index++) {
+    arr->Set(index, elements[index]);
+  }
+
+  return arr;
+}
+
 Array* Array::Cast(Value* obj) {
   CHAKRA_ASSERT(obj->IsArray());
   return static_cast<Array*>(obj);

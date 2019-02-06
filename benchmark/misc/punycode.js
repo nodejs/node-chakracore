@@ -4,7 +4,7 @@ const common = require('../common.js');
 let icu;
 try {
   icu = common.binding('icu');
-} catch (err) {}
+} catch (e) {}
 const punycode = require('punycode');
 
 const bench = common.createBenchmark(main, {

@@ -6,9 +6,10 @@
 #include <cmath>
 #include <vector>
 #define NAPI_EXPERIMENTAL
-#include "node_api.h"
-#include "node_internals.h"
 #include "env.h"
+#include "node_api.h"
+#include "node_errors.h"
+#include "node_internals.h"
 
 static
 napi_status napi_set_last_error(napi_env env, napi_status error_code,
@@ -1084,6 +1085,7 @@ class ThreadSafeFunction : public node::AsyncResource {
   }
 
   void CloseHandlesAndMaybeDelete(bool set_closing = false) {
+    v8::HandleScope scope(env->isolate);
     if (set_closing) {
       node::Mutex::ScopedLock lock(this->mutex);
       is_closing = true;
@@ -1101,6 +1103,7 @@ class ThreadSafeFunction : public node::AsyncResource {
           ThreadSafeFunction* ts_fn =
               node::ContainerOf(&ThreadSafeFunction::async,
                                 reinterpret_cast<uv_async_t*>(handle));
+          v8::HandleScope scope(ts_fn->env->isolate);
           ts_fn->env->node_env()->CloseHandle(
               reinterpret_cast<uv_handle_t*>(&ts_fn->idle),
               [](uv_handle_t* handle) -> void {

@@ -35,7 +35,7 @@ class AutocannonBenchmarker {
     let result;
     try {
       result = JSON.parse(output);
-    } catch (err) {
+    } catch (e) {
       return undefined;
     }
     if (!result || !result.requests || !result.requests.average) {
@@ -106,7 +106,7 @@ class TestDoubleBenchmarker {
     let result;
     try {
       result = JSON.parse(output);
-    } catch (err) {
+    } catch (e) {
       return undefined;
     }
     return result.throughput;

@@ -167,7 +167,7 @@ The number of concurrent connections on the server.
 
 This becomes `null` when sending a socket to a child with
 [`child_process.fork()`][]. To poll forks and get current number of active
-connections use asynchronous [`server.getConnections()`][] instead.
+connections, use asynchronous [`server.getConnections()`][] instead.
 
 ### server.getConnections(callback)
 <!-- YAML
@@ -658,9 +658,9 @@ called with `{port: port, host: host}` as `options`.
 added: v6.1.0
 -->
 
-If `true` -
+If `true`,
 [`socket.connect(options[, connectListener])`][`socket.connect(options)`]
-was called and haven't yet finished. Will be set to `false` before emitting
+was called and has not yet finished. Will be set to `true` before emitting
 `'connect'` event and/or calling
 [`socket.connect(options[, connectListener])`][`socket.connect(options)`]'s
 callback.
@@ -886,6 +886,7 @@ added: v0.7.0
 -->
 * `options` {Object}
 * `connectListener` {Function}
+
 Alias to
 [`net.createConnection(options[, connectListener])`][`net.createConnection(options)`].
 
@@ -1028,10 +1029,6 @@ then returns the `net.Socket` that starts the connection.
 <!-- YAML
 added: v0.5.0
 -->
-* `options` {Object}
-* `connectionListener` {Function}
-
-Creates a new TCP or [IPC][] server.
 
 * `options` {Object}
   * `allowHalfOpen` {boolean} Indicates whether half-opened TCP
@@ -1041,6 +1038,8 @@ Creates a new TCP or [IPC][] server.
 * `connectionListener` {Function} Automatically set as a listener for the
   [`'connection'`][] event.
 * Returns: {net.Server}
+
+Creates a new TCP or [IPC][] server.
 
 If `allowHalfOpen` is set to `true`, when the other end of the socket
 sends a FIN packet, the server will only send a FIN packet back when

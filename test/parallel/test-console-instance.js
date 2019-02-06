@@ -34,7 +34,7 @@ const err = new Stream();
 process.stdout.write = process.stderr.write = common.mustNotCall();
 
 // Make sure that the "Console" function exists.
-assert.strictEqual('function', typeof Console);
+assert.strictEqual(typeof Console, 'function');
 
 assert.strictEqual(requiredConsole, global.console);
 // Make sure the custom instanceof of Console works
@@ -105,10 +105,16 @@ out.write = err.write = (d) => {};
 {
   class MyConsole extends Console {
     hello() {}
+    // See if the methods on Console.prototype are overridable.
+    log() { return 'overridden'; }
   }
   const myConsole = new MyConsole(process.stdout);
   assert.strictEqual(typeof myConsole.hello, 'function');
   assert.ok(myConsole instanceof Console);
+  assert.strictEqual(myConsole.log(), 'overridden');
+
+  const log = myConsole.log;
+  assert.strictEqual(log(), 'overridden');
 }
 
 // Instance that does not ignore the stream errors.

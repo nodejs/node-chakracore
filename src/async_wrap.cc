@@ -21,9 +21,10 @@
 
 #include "async_wrap-inl.h"
 #include "env-inl.h"
+#include "node_errors.h"
 #include "node_internals.h"
-#include "util-inl.h"
 #include "tracing/traced_value.h"
+#include "util-inl.h"
 
 #include "v8.h"
 #include "v8-profiler.h"
@@ -346,8 +347,13 @@ void AsyncWrap::WeakCallback(const v8::WeakCallbackInfo<DestroyParam>& info) {
 
   std::unique_ptr<DestroyParam> p{info.GetParameter()};
   Local<Object> prop_bag = PersistentToLocal(info.GetIsolate(), p->propBag);
+  Local<Value> val;
 
-  Local<Value> val = prop_bag->Get(p->env->destroyed_string());
+  if (!prop_bag->Get(p->env->context(), p->env->destroyed_string())
+        .ToLocal(&val)) {
+    return;
+  }
+
   if (val->IsFalse()) {
     AsyncWrap::EmitDestroy(p->env, p->asyncId);
   }

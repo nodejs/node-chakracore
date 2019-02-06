@@ -1758,6 +1758,8 @@ class V8_EXPORT Array : public Object {
     Local<Context> context, uint32_t index);
 
   static Local<Array> New(Isolate* isolate = nullptr, int length = 0);
+  static Local<Array> New(Isolate* isolate, Local<Value>* elements,
+                          size_t length);
   static Array* Cast(Value* obj);
 };
 

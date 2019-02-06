@@ -13,6 +13,7 @@
 #include <node_api.h>
 #include <node_buffer.h>
 #include <node_object_wrap.h>
+#include <node_errors.h>
 #include <env.h>
 #include <algorithm>
 #include <array>

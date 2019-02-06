@@ -33,6 +33,7 @@ namespace contextify {
 
 using v8::Array;
 using v8::ArrayBuffer;
+using v8::ArrayBufferView;
 using v8::Boolean;
 using v8::Context;
 using v8::EscapableHandleScope;
@@ -64,7 +65,6 @@ using v8::String;
 using v8::Symbol;
 using v8::TryCatch;
 using v8::Uint32;
-using v8::Uint8Array;
 using v8::UnboundScript;
 using v8::Value;
 using v8::WeakCallbackInfo;
@@ -655,7 +655,7 @@ void ContextifyScript::New(const FunctionCallbackInfo<Value>& args) {
 
   Local<Integer> line_offset;
   Local<Integer> column_offset;
-  Local<Uint8Array> cached_data_buf;
+  Local<ArrayBufferView> cached_data_buf;
   bool produce_cached_data = false;
   Local<Context> parsing_context = context;
 
@@ -668,8 +668,8 @@ void ContextifyScript::New(const FunctionCallbackInfo<Value>& args) {
     CHECK(args[3]->IsNumber());
     column_offset = args[3].As<Integer>();
     if (!args[4]->IsUndefined()) {
-      CHECK(args[4]->IsUint8Array());
-      cached_data_buf = args[4].As<Uint8Array>();
+      CHECK(args[4]->IsArrayBufferView());
+      cached_data_buf = args[4].As<ArrayBufferView>();
     }
     CHECK(args[5]->IsBoolean());
     produce_cached_data = args[5]->IsTrue();
@@ -885,47 +885,6 @@ void ContextifyScript::RunInContext(const FunctionCallbackInfo<Value>& args) {
       TRACING_CATEGORY_NODE2(vm, script), "RunInContext", wrapped_script);
 }
 
-void ContextifyScript::DecorateErrorStack(
-    Environment* env, const TryCatch& try_catch) {
-  Local<Value> exception = try_catch.Exception();
-
-  if (!exception->IsObject())
-    return;
-
-  Local<Object> err_obj = exception.As<Object>();
-
-  if (IsExceptionDecorated(env, err_obj))
-    return;
-
-  AppendExceptionLine(env, exception, try_catch.Message(), CONTEXTIFY_ERROR);
-  Local<Value> stack = err_obj->Get(env->stack_string());
-  MaybeLocal<Value> maybe_value =
-      err_obj->GetPrivate(
-          env->context(),
-          env->arrow_message_private_symbol());
-
-  Local<Value> arrow;
-  if (!(maybe_value.ToLocal(&arrow) && arrow->IsString())) {
-    return;
-  }
-
-  if (stack.IsEmpty() || !stack->IsString()) {
-    return;
-  }
-
-  Local<String> decorated_stack = String::Concat(
-      env->isolate(),
-      String::Concat(env->isolate(),
-                     arrow.As<String>(),
-                     FIXED_ONE_BYTE_STRING(env->isolate(), "\n")),
-      stack.As<String>());
-  err_obj->Set(env->stack_string(), decorated_stack);
-  err_obj->SetPrivate(
-      env->context(),
-      env->decorated_private_symbol(),
-      True(env->isolate()));
-}
-
 bool ContextifyScript::EvalMachine(Environment* env,
                                    const int64_t timeout,
                                    const bool display_errors,
@@ -1032,10 +991,10 @@ void ContextifyContext::CompileFunction(
   Local<Integer> column_offset = args[3].As<Integer>();
 
   // Argument 5: cached data (optional)
-  Local<Uint8Array> cached_data_buf;
+  Local<ArrayBufferView> cached_data_buf;
   if (!args[4]->IsUndefined()) {
-    CHECK(args[4]->IsUint8Array());
-    cached_data_buf = args[4].As<Uint8Array>();
+    CHECK(args[4]->IsArrayBufferView());
+    cached_data_buf = args[4].As<ArrayBufferView>();
   }
 
   // Argument 6: produce cache data
@@ -1118,7 +1077,7 @@ void ContextifyContext::CompileFunction(
 
   Local<Function> fun;
   if (maybe_fun.IsEmpty() || !maybe_fun.ToLocal(&fun)) {
-    ContextifyScript::DecorateErrorStack(env, try_catch);
+    DecorateErrorStack(env, try_catch);
     try_catch.ReThrow();
     return;
   }

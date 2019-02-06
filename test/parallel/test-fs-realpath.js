@@ -235,7 +235,7 @@ function test_cyclic_link_overprotection(realpath, realpathSync, callback) {
   const link = `${folder}/cycles`;
   let testPath = cycles;
   testPath += '/folder/cycles'.repeat(10);
-  try { fs.unlinkSync(link); } catch (ex) {}
+  try { fs.unlinkSync(link); } catch (e) {}
   fs.symlinkSync(cycles, link, 'dir');
   unlink.push(link);
   assertEqualPath(realpathSync(testPath), path.resolve(expected));
@@ -429,14 +429,14 @@ function test_abs_with_kids(realpath, realpathSync, cb) {
     ['/a/b/c/x.txt',
      '/a/link'
     ].forEach(function(file) {
-      try { fs.unlinkSync(root + file); } catch (ex) {}
+      try { fs.unlinkSync(root + file); } catch (e) {}
     });
     ['/a/b/c',
      '/a/b',
      '/a',
      ''
     ].forEach(function(folder) {
-      try { fs.rmdirSync(root + folder); } catch (ex) {}
+      try { fs.rmdirSync(root + folder); } catch (e) {}
     });
   }
   function setup() {

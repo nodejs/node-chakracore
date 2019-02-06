@@ -14,6 +14,38 @@
 
 namespace node {
 
+void DecorateErrorStack(Environment* env, const v8::TryCatch& try_catch);
+
+enum ErrorHandlingMode { CONTEXTIFY_ERROR, FATAL_ERROR, MODULE_ERROR };
+void AppendExceptionLine(Environment* env,
+                         v8::Local<v8::Value> er,
+                         v8::Local<v8::Message> message,
+                         enum ErrorHandlingMode mode);
+
+[[noreturn]] void FatalError(const char* location, const char* message);
+void OnFatalError(const char* location, const char* message);
+
+// Like a `TryCatch` but exits the process if an exception was caught.
+class FatalTryCatch : public v8::TryCatch {
+ public:
+  explicit FatalTryCatch(Environment* env)
+      : TryCatch(env->isolate()), env_(env) {}
+  ~FatalTryCatch();
+
+ private:
+  Environment* env_;
+};
+
+void PrintErrorString(const char* format, ...);
+
+void ReportException(Environment* env, const v8::TryCatch& try_catch);
+
+void FatalException(v8::Isolate* isolate,
+                    v8::Local<v8::Value> error,
+                    v8::Local<v8::Message> message);
+
+void FatalException(const v8::FunctionCallbackInfo<v8::Value>& args);
+
 // Helpers to construct errors similar to the ones provided by
 // lib/internal/errors.js.
 // Example: with `V(ERR_INVALID_ARG_TYPE, TypeError)`, there will be
@@ -21,6 +53,7 @@ namespace node {
 // a `Local<Value>` containing the TypeError with proper code and message
 
 #define ERRORS_WITH_CODE(V)                                                  \
+  V(ERR_BUFFER_CONTEXT_NOT_AVAILABLE, Error)                                 \
   V(ERR_BUFFER_OUT_OF_BOUNDS, RangeError)                                    \
   V(ERR_BUFFER_TOO_LARGE, Error)                                             \
   V(ERR_CANNOT_TRANSFER_OBJECT, TypeError)                                   \
@@ -64,6 +97,8 @@ namespace node {
 // Errors with predefined static messages
 
 #define PREDEFINED_ERROR_MESSAGES(V)                                         \
+  V(ERR_BUFFER_CONTEXT_NOT_AVAILABLE,                                        \
+    "Buffer is not available for the current Context")                       \
   V(ERR_CANNOT_TRANSFER_OBJECT, "Cannot transfer object of unsupported type")\
   V(ERR_CLOSED_MESSAGE_PORT, "Cannot send data on closed MessagePort")       \
   V(ERR_CONSTRUCT_CALL_REQUIRED, "Cannot call constructor without `new`")    \
