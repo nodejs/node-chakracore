@@ -1499,6 +1499,7 @@ def PrintCrashed(code):
 IGNORED_SUITES = [
   'addons',
   'addons-napi',
+  'benchmark',
   'doctool',
   'internet',
   'pummel',
