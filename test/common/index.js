@@ -194,7 +194,7 @@ function platformTimeout(ms) {
   // See https://github.com/eslint/eslint/pull/9636.
   // eslint-disable-next-line valid-typeof
   const multipliers = typeof ms === 'bigint' ?
-    { two: 2n, four: 4n, seven: 7n } : { two: 2, four: 4, seven: 7 };
+    eval('{ two: 2n, four: 4n, seven: 7n }') : { two: 2, four: 4, seven: 7 };
 
   if (process.features.debug)
     ms = multipliers.two * ms;
