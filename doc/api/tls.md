@@ -566,6 +566,22 @@ added: v0.11.4
 Always returns `true`. This may be used to distinguish TLS sockets from regular
 `net.Socket` instances.
 
+### tlsSocket.getCertificate()
+<!-- YAML
+added: REPLACEME
+-->
+
+* Returns: {Object}
+
+Returns an object representing the local certificate. The returned object has
+some properties corresponding to the fields of the certificate.
+
+See [`tls.TLSSocket.getPeerCertificate()`][] for an example of the certificate
+structure.
+
+If there is no local certificate, an empty object will be returned. If the
+socket has been destroyed, `null` will be returned.
+
 ### tlsSocket.getCipher()
 <!-- YAML
 added: v0.11.4
@@ -658,6 +674,7 @@ certificate.
 ```
 
 If the peer does not provide a certificate, an empty object will be returned.
+If the socket has been destroyed, `null` will be returned.
 
 ### tlsSocket.getPeerFinished()
 <!-- YAML
@@ -903,9 +920,10 @@ changes:
     An array of strings, `Buffer`s or `TypedArray`s or `DataView`s, or a
     single `Buffer` or `TypedArray` or `DataView` containing the supported ALPN
     protocols. `Buffer`s should have the format `[len][name][len][name]...`
-    e.g. `0x05hello0x05world`, where the first byte is the length of the next
-    protocol name. Passing an array is usually much simpler, e.g.
-    `['hello', 'world']`.
+    e.g. `'\x08http/1.1\x08http/1.0'`, where the `len` byte is the length of the
+    next protocol name. Passing an array is usually much simpler, e.g.
+    `['http/1.1', 'http/1.0']`. Protocols earlier in the list have higher
+    preference than those later.
   * `servername`: {string} Server name for the SNI (Server Name Indication) TLS
     extension. It is the name of the host being connected to, and must be a host
     name, and not an IP address. It can be used by a multi-homed server to
@@ -1102,7 +1120,8 @@ changes:
     [OpenSSL Options][].
   * `secureProtocol` {string} SSL method to use. The possible values are listed
     as [SSL_METHODS][], use the function names as strings. For example,
-    `'TLSv1_2_method'` to force TLS version 1.2. **Default:** `'TLS_method'`.
+    `'TLSv1_2_method'` to force TLS version 1.2.
+    **Default:** `'TLSv1_2_method'`.
   * `sessionIdContext` {string} Opaque identifier used by servers to ensure
     session state is not shared between applications. Unused by clients.
 

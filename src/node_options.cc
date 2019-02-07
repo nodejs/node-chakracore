@@ -187,6 +187,17 @@ void EnvironmentOptionsParser::Initialize() {
 
   AddOption("--napi-modules", "", NoOp{}, kAllowedInEnvironment);
 
+#if HAVE_OPENSSL
+  AddOption("--tls-v1.0",
+            "enable TLSv1.0",
+            &EnvironmentOptions::tls_v1_0,
+            kAllowedInEnvironment);
+  AddOption("--tls-v1.1",
+            "enable TLSv1.1",
+            &EnvironmentOptions::tls_v1_1,
+            kAllowedInEnvironment);
+#endif
+
   Insert(DebugOptionsParser::GetInstance(),
          &EnvironmentOptions::get_debug_options);
 }

@@ -396,9 +396,12 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
   ASSIGN_OR_RETURN_UNWRAP(&sc, args.Holder());
   Environment* env = sc->env();
 
-  int min_version = 0;
+  int min_version = TLS1_2_VERSION;
   int max_version = 0;
   const SSL_METHOD* method = TLS_method();
+
+  if (env->options()->tls_v1_1) min_version = TLS1_1_VERSION;
+  if (env->options()->tls_v1_0) min_version = TLS1_VERSION;
 
   if (args.Length() == 1 && args[0]->IsString()) {
     const node::Utf8Value sslmethod(env->isolate(), args[0]);
@@ -425,6 +428,9 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
       method = TLS_server_method();
     } else if (strcmp(*sslmethod, "SSLv23_client_method") == 0) {
       method = TLS_client_method();
+    } else if (strcmp(*sslmethod, "TLS_method") == 0) {
+      min_version = 0;
+      max_version = 0;
     } else if (strcmp(*sslmethod, "TLSv1_method") == 0) {
       min_version = TLS1_VERSION;
       max_version = TLS1_VERSION;
@@ -1403,6 +1409,7 @@ void SSLWrap<Base>::AddMethods(Environment* env, Local<FunctionTemplate> t) {
   HandleScope scope(env->isolate());
 
   env->SetProtoMethodNoSideEffect(t, "getPeerCertificate", GetPeerCertificate);
+  env->SetProtoMethodNoSideEffect(t, "getCertificate", GetCertificate);
   env->SetProtoMethodNoSideEffect(t, "getFinished", GetFinished);
   env->SetProtoMethodNoSideEffect(t, "getPeerFinished", GetPeerFinished);
   env->SetProtoMethodNoSideEffect(t, "getSession", GetSession);
@@ -1865,8 +1872,26 @@ void SSLWrap<Base>::GetPeerCertificate(
   }
 
  done:
-  if (result.IsEmpty())
-    result = Object::New(env->isolate());
+  args.GetReturnValue().Set(result);
+}
+
+
+template <class Base>
+void SSLWrap<Base>::GetCertificate(
+    const FunctionCallbackInfo<Value>& args) {
+  Base* w;
+  ASSIGN_OR_RETURN_UNWRAP(&w, args.Holder());
+  Environment* env = w->ssl_env();
+
+  ClearErrorOnReturn clear_error_on_return;
+
+  Local<Object> result;
+
+  X509Pointer cert(SSL_get_certificate(w->ssl_.get()));
+
+  if (cert)
+    result = X509ToObject(env, cert.get());
+
   args.GetReturnValue().Set(result);
 }
 
