@@ -162,6 +162,7 @@ test-vm-module-errors : SKIP
 test-vm-module-import-meta : SKIP
 test-vm-module-link : SKIP
 test-vm-module-reevaluate : SKIP
+test-loaders-unknown-builtin-module : SKIP
 
 # This test requires support for bigints
 test-fs-stat-bigint : SKIP
