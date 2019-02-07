@@ -29,12 +29,11 @@
 
     'clang%': 0,
 
-    'openssl_no_asm%': 0,
     'openssl_fips%': '',
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.10',
+    'v8_embedder_string': '-node.11',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -54,6 +53,12 @@
     'icu_use_data_file_flag%': 0,
 
     'conditions': [
+      ['target_arch=="arm64"', {
+        # Disabled pending https://github.com/nodejs/node/issues/23913.
+        'openssl_no_asm%': 1,
+      }, {
+        'openssl_no_asm%': 0,
+      }],
       ['GENERATOR=="ninja"', {
         'obj_dir': '<(PRODUCT_DIR)/obj',
         'chakrashim_base': '<(PRODUCT_DIR)/obj/deps/chakrashim/libchakrashim.a',

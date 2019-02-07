@@ -895,6 +895,16 @@ common.expectsError(
 });
 
 {
+
+  assert.throws(() => {
+    assert.ok((() => Boolean('' === false))());
+  }, {
+    message: engineSpecificAssert(
+             'The expression evaluated to a falsy value:\n\n' +
+             "  assert.ok((() => Boolean('\\u0001' === false))())\n",
+             "false == true")
+  });
+
   const errFn = () => {
     const err = new TypeError('Wrong value');
     err.code = 404;

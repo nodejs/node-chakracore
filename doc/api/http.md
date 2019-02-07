@@ -368,7 +368,7 @@ proxy.listen(1337, '127.0.0.1', () => {
   // make a request to a tunneling proxy
   const options = {
     port: 1337,
-    hostname: '127.0.0.1',
+    host: '127.0.0.1',
     method: 'CONNECT',
     path: 'www.google.com:80'
   };
@@ -415,7 +415,7 @@ event is emitted with a callback containing an object with a status code.
 const http = require('http');
 
 const options = {
-  hostname: '127.0.0.1',
+  host: '127.0.0.1',
   port: 8080,
   path: '/length_request'
 };
@@ -502,7 +502,7 @@ srv.listen(1337, '127.0.0.1', () => {
   // make a request
   const options = {
     port: 1337,
-    hostname: '127.0.0.1',
+    host: '127.0.0.1',
     headers: {
       'Connection': 'Upgrade',
       'Upgrade': 'websocket'
@@ -1898,14 +1898,14 @@ changes:
   * `host` {string} A domain name or IP address of the server to issue the
     request to. **Default:** `'localhost'`.
   * `hostname` {string} Alias for `host`. To support [`url.parse()`][],
-    `hostname` is preferred over `host`.
-  * `family` {number} IP address family to use when resolving `host` and
+    `hostname` will be used if both `host` and `hostname` are specified.
+  * `family` {number} IP address family to use when resolving `host` or
     `hostname`. Valid values are `4` or `6`. When unspecified, both IP v4 and
     v6 will be used.
   * `port` {number} Port of remote server. **Default:** `80`.
   * `localAddress` {string} Local interface to bind for network connections.
-  * `socketPath` {string} Unix Domain Socket (use one of `host:port` or
-    `socketPath`).
+  * `socketPath` {string} Unix Domain Socket (cannot be used if one of `host`
+     or `port` is specified, those specify a TCP Socket).
   * `method` {string} A string specifying the HTTP request method. **Default:**
     `'GET'`.
   * `path` {string} Request path. Should include query string if any.
@@ -2112,3 +2112,4 @@ not abort the request or do anything besides add a `'timeout'` event.
 [`socket.unref()`]: net.html#net_socket_unref
 [`url.parse()`]: url.html#url_url_parse_urlstring_parsequerystring_slashesdenotehost
 [Readable Stream]: stream.html#stream_class_stream_readable
+[Stream]: stream.html#stream_stream

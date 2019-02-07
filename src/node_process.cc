@@ -488,7 +488,8 @@ void GetGroups(const FunctionCallbackInfo<Value>& args) {
   gid_t egid = getegid();
 
   for (int i = 0; i < ngroups; i++) {
-    groups_list->Set(i, Integer::New(env->isolate(), groups[i]));
+    groups_list->Set(env->context(),
+                     i, Integer::New(env->isolate(), groups[i])).FromJust();
     if (groups[i] == egid)
       seen_egid = true;
   }
@@ -496,7 +497,9 @@ void GetGroups(const FunctionCallbackInfo<Value>& args) {
   delete[] groups;
 
   if (seen_egid == false)
-    groups_list->Set(ngroups, Integer::New(env->isolate(), egid));
+    groups_list->Set(env->context(),
+                     ngroups,
+                     Integer::New(env->isolate(), egid)).FromJust();
 
   args.GetReturnValue().Set(groups_list);
 }
@@ -513,7 +516,9 @@ void SetGroups(const FunctionCallbackInfo<Value>& args) {
   gid_t* groups = new gid_t[size];
 
   for (size_t i = 0; i < size; i++) {
-    gid_t gid = gid_by_name(env->isolate(), groups_list->Get(i));
+    gid_t gid = gid_by_name(env->isolate(),
+                            groups_list->Get(env->context(),
+                                             i).ToLocalChecked());
 
     if (gid == gid_not_found) {
       delete[] groups;
@@ -725,40 +730,29 @@ void EnvDeleter(Local<Name> property,
 void EnvEnumerator(const PropertyCallbackInfo<Array>& info) {
   Environment* env = Environment::GetCurrent(info);
   Isolate* isolate = env->isolate();
-  Local<Context> ctx = env->context();
-  Local<Function> fn = env->push_values_to_array_function();
-  Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-  size_t idx = 0;
 
   Mutex::ScopedLock lock(environ_mutex);
+  Local<Array> envarr;
+  int env_size = 0;
 #ifdef __POSIX__
-  int size = 0;
-  while (environ[size])
-    size++;
+  while (environ[env_size]) {
+    env_size++;
+  }
+  std::vector<Local<Value>> env_v(env_size);
 
-  Local<Array> envarr = Array::New(isolate);
-
-  for (int i = 0; i < size; ++i) {
+  for (int i = 0; i < env_size; ++i) {
     const char* var = environ[i];
     const char* s = strchr(var, '=');
     const int length = s ? s - var : strlen(var);
-    argv[idx] = String::NewFromUtf8(isolate,
-                                    var,
-                                    v8::NewStringType::kNormal,
-                                    length).ToLocalChecked();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, envarr, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
-  }
-  if (idx > 0) {
-    fn->Call(ctx, envarr, idx, argv).ToLocalChecked();
+    env_v[i] =
+        String::NewFromUtf8(isolate, var, v8::NewStringType::kNormal, length)
+            .ToLocalChecked();
   }
 #else  // _WIN32
+  std::vector<Local<Value>> env_v;
   WCHAR* environment = GetEnvironmentStringsW();
   if (environment == nullptr)
     return;  // This should not happen.
-  Local<Array> envarr = Array::New(isolate);
   WCHAR* p = environment;
   while (*p) {
     WCHAR* s;
@@ -784,19 +778,13 @@ void EnvEnumerator(const PropertyCallbackInfo<Array>& info) {
       FreeEnvironmentStringsW(environment);
       return;
     }
-    argv[idx] = rc.ToLocalChecked();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, envarr, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
+    env_v.push_back(rc.ToLocalChecked());
     p = s + wcslen(s) + 1;
-  }
-  if (idx > 0) {
-    fn->Call(ctx, envarr, idx, argv).ToLocalChecked();
   }
   FreeEnvironmentStringsW(environment);
 #endif
 
+  envarr = Array::New(isolate, env_v.data(), env_v.size());
   info.GetReturnValue().Set(envarr);
 }
 
@@ -809,54 +797,30 @@ void GetActiveRequests(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
   Local<Array> ary = Array::New(args.GetIsolate());
-  Local<Context> ctx = env->context();
-  Local<Function> fn = env->push_values_to_array_function();
-  Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-  size_t idx = 0;
-
+  std::vector<Local<Value>> request_v;
   for (auto w : *env->req_wrap_queue()) {
     if (w->persistent().IsEmpty())
       continue;
-    argv[idx] = w->GetOwner();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
+    request_v.push_back(w->GetOwner());
   }
 
-  if (idx > 0) {
-    fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-  }
-
-  args.GetReturnValue().Set(ary);
+  args.GetReturnValue().Set(
+      Array::New(env->isolate(), request_v.data(), request_v.size()));
 }
-
 
 // Non-static, friend of HandleWrap. Could have been a HandleWrap method but
 // implemented here for consistency with GetActiveRequests().
 void GetActiveHandles(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
-  Local<Array> ary = Array::New(env->isolate());
-  Local<Context> ctx = env->context();
-  Local<Function> fn = env->push_values_to_array_function();
-  Local<Value> argv[NODE_PUSH_VAL_TO_ARRAY_MAX];
-  size_t idx = 0;
-
+  std::vector<Local<Value>> handle_v;
   for (auto w : *env->handle_wrap_queue()) {
     if (!HandleWrap::HasRef(w))
       continue;
-    argv[idx] = w->GetOwner();
-    if (++idx >= arraysize(argv)) {
-      fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-      idx = 0;
-    }
+    handle_v.push_back(w->GetOwner());
   }
-  if (idx > 0) {
-    fn->Call(ctx, ary, idx, argv).ToLocalChecked();
-  }
-
-  args.GetReturnValue().Set(ary);
+  args.GetReturnValue().Set(
+      Array::New(env->isolate(), handle_v.data(), handle_v.size()));
 }
 
 void DebugPortGetter(Local<Name> property,

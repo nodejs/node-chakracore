@@ -182,6 +182,11 @@ parser.add_option('--openssl-system-ca-path',
     help='Use the specified path to system CA (PEM format) in addition to '
          'the OpenSSL supplied CA store or compiled-in Mozilla CA copy.')
 
+parser.add_option('--experimental-http-parser',
+    action='store_true',
+    dest='experimental_http_parser',
+    help='use llhttp instead of http_parser')
+
 shared_optgroup.add_option('--shared-http-parser',
     action='store_true',
     dest='shared_http_parser',
@@ -1136,6 +1141,9 @@ def configure_node(o):
   else:
     o['variables']['node_target_type'] = 'executable'
 
+  o['variables']['node_experimental_http_parser'] = \
+      b(options.experimental_http_parser)
+
 def configure_library(lib, output):
   shared_lib = 'shared_' + lib
   output['variables']['node_' + shared_lib] = b(getattr(options, shared_lib))
@@ -1205,8 +1213,10 @@ def configure_openssl(o):
   variables = o['variables']
   variables['node_use_openssl'] = b(not options.without_ssl)
   variables['node_shared_openssl'] = b(options.shared_openssl)
-  variables['openssl_no_asm'] = 1 if options.openssl_no_asm else 0
   variables['openssl_fips'] = ''
+
+  if options.openssl_no_asm:
+    variables['openssl_no_asm'] = 1
 
   if options.without_ssl:
     def without_ssl_error(option):
