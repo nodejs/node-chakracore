@@ -3,7 +3,6 @@
 ## Contents
 
 * [Issues and Pull Requests](#issues-and-pull-requests)
-  - [Managing Issues and Pull Requests](#managing-issues-and-pull-requests)
   - [Welcoming First-Time Contributors](#welcoming-first-time-contributors)
   - [Closing Issues and Pull Requests](#closing-issues-and-pull-requests)
   - [Author ready pull requests](#author-ready-pull-requests)
@@ -45,14 +44,9 @@ Collaborators should understand the
 
 ## Issues and Pull Requests
 
-### Managing Issues and Pull Requests
-
-Collaborators should take full responsibility for managing issues and pull
-requests they feel qualified to handle. Make sure this is done while being
-mindful of these guidelines, the opinions of other Collaborators, and guidance
-of the [TSC][]. They may also notify other qualified parties for more input on
-an issue or a pull request.
-See [Who to CC in the issue tracker](#who-to-cc-in-the-issue-tracker).
+Mind these guidelines, the opinions of other Collaborators, and guidance of the
+[TSC][]. Notify other qualified parties for more input on an issue or a pull
+request. See [Who to CC in the issue tracker](#who-to-cc-in-the-issue-tracker).
 
 ### Welcoming First-Time Contributors
 
@@ -800,8 +794,8 @@ TSC for further discussion.
 
 #### How are LTS Branches Managed?
 
-There are multiple LTS branches, e.g. `v8.x` and `v6.x`. Each of these is paired
-with a staging branch: `v8.x-staging` and `v6.x-staging`.
+There are multiple LTS branches, e.g. `v10.x` and `v8.x`. Each of these is
+paired with a staging branch: `v10.x-staging` and `v8.x-staging`.
 
 As commits land on the master branch, they are cherry-picked back to each
 staging branch as appropriate. If the commit applies only to the LTS branch, the
@@ -823,14 +817,18 @@ on backporting, please see the [backporting guide][].
 
 Several LTS related issue and PR labels have been provided:
 
-* `lts-watch-v6.x` - tells the LTS WG that the issue/PR needs to be considered
-  for landing in the `v6.x-staging` branch.
-* `lts-watch-v4.x` - tells the LTS WG that the issue/PR needs to be considered
-  for landing in the `v4.x-staging` branch.
+* `lts-watch-v10.x` - tells the LTS WG that the issue/PR needs to be
+  considered for landing in the `v10.x-staging` branch.
+* `lts-watch-v8.x` - tells the LTS WG that the issue/PR needs to be
+  considered for landing in the `v8.x-staging` branch.
+* `lts-watch-v6.x` - tells the LTS WG that the issue/PR needs to be
+  considered for landing in the `v6.x-staging` branch.
+* `land-on-v10.x` - tells the release team that the commit should be landed
+  in a future v10.x release.
+* `land-on-v8.x` - tells the release team that the commit should be landed
+  in a future v8.x release.
 * `land-on-v6.x` - tells the release team that the commit should be landed
-  in a future v6.x release
-* `land-on-v4.x` - tells the release team that the commit should be landed
-  in a future v4.x release
+  in a future v6.x release.
 
 Any Collaborator can attach these labels to any PR/issue. As commits are
 landed into the staging branches, the `lts-watch-` label will be removed.

@@ -20,6 +20,7 @@
 
 #include "v8chakra.h"
 #include <memory>
+#include <string>
 
 namespace v8 {
 
@@ -57,6 +58,52 @@ static JsErrorCode CreateScriptObject(JsValueRef sourceRef,
 
   return jsrt::SetProperty(*scriptObject, CachedPropertyIdRef::function,
                            scriptFunction);
+}
+
+const ScriptCompiler::CachedData* ScriptCompiler::Source::GetCachedData()
+    const {
+  return this->cached_data;
+}
+
+MaybeLocal<Script> Script::CompileWithParserState(Local<Context> context,
+                                                  Handle<String> source,
+                                                  const uint8_t* buffer,
+                                                  unsigned int bufferLength,
+                                                  ScriptOrigin* origin) {
+  JsValueRef filenameRef;
+  const char* filename = "";
+  if (origin != nullptr) {
+    filenameRef = *origin->ResourceName();
+  } else {
+    if (JsCreateString(filename, strlen(filename), &filenameRef) != JsNoError) {
+      return Local<Script>();
+    }
+  }
+  JsValueRef sourceRef;
+  jsrt::StringUtf8 script;
+  if (jsrt::ToString(*source, &sourceRef, &script) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef scriptFunction;
+  // TODO: isolate?
+  JsValueRef parserState =
+      *v8::ArrayBuffer::New(nullptr, (void*)buffer, bufferLength);
+  if (jsrt::DeserializeParserState(&script,
+                                   currentContext++,
+                                   filenameRef,
+                                   parserState,
+                                   &scriptFunction) != JsNoError) {
+    return Local<Script>();
+  }
+
+  JsValueRef scriptObject;
+  if (CreateScriptObject(
+          sourceRef, filenameRef, scriptFunction, &scriptObject) != JsNoError) {
+    return Local<Script>();
+  }
+
+  return Local<Script>::New(scriptObject);
 }
 
 // Compiled script object, bound to the context that was active when this
@@ -233,6 +280,68 @@ int UnboundScript::GetId() {
   return 0;
 }
 
+ScriptCompiler::CachedData* ScriptCompiler::CreateCodeCache(
+    Local<UnboundScript> unbound_script) {
+  JsValueRef unboundScriptRef = *unbound_script;
+  jsrt::ContextShim* contextShim =
+      jsrt::ContextShim::FromJsValueRef(unboundScriptRef);
+
+  jsrt::StringUtf8 source;
+  jsrt::StringUtf8 filename;
+  JsValueRef originalFilenameRef;
+  {
+    jsrt::ContextShim::Scope scope(contextShim);
+    JsValueRef scriptRef;
+    if (jsrt::GetProperty(unboundScriptRef,
+                          CachedPropertyIdRef::script,
+                          &scriptRef) != JsNoError) {
+      return nullptr;
+    }
+
+    JsValueRef originalSourceRef;
+    if (jsrt::GetProperty(scriptRef,
+                          CachedPropertyIdRef::source,
+                          &originalSourceRef) != JsNoError) {
+      return nullptr;
+    }
+    if (jsrt::GetProperty(scriptRef,
+                          CachedPropertyIdRef::filename,
+                          &originalFilenameRef) != JsNoError) {
+      return nullptr;
+    }
+    if (source.From(originalSourceRef) != JsNoError) {
+      return nullptr;
+    }
+    if (filename.From(originalFilenameRef) != JsNoError) {
+      return nullptr;
+    }
+  }
+
+  JsValueRef bufferVal;
+  if (jsrt::SerializeParserState(&source,
+                                 currentContext++,
+                                 originalFilenameRef,
+                                 g_useStrict,
+                                 &bufferVal) != JsNoError) {
+    return nullptr;
+  }
+
+  uint8_t* buffer = nullptr;
+  unsigned int bufferLength = 0;
+  if (jsrt::GetArrayBufferStorage(bufferVal, &buffer, &bufferLength) !=
+      JsNoError) {
+    return nullptr;
+  }
+
+  // TODO: manage memory
+  return new ScriptCompiler::CachedData(buffer, bufferLength);
+}
+
+ScriptCompiler::CachedData* ScriptCompiler::CreateCodeCache(
+    Local<UnboundScript> unbound_script, Local<String> source) {
+  return ScriptCompiler::CreateCodeCache(unbound_script);
+}
+
 MaybeLocal<UnboundScript> ScriptCompiler::CompileUnboundScript(
     Isolate* isolate, Source* source, CompileOptions options) {
   MaybeLocal<Script> maybe = Compile(Local<Context>(), source, options);
@@ -251,7 +360,15 @@ MaybeLocal<Script> ScriptCompiler::Compile(Local<Context> context,
                                            Source* source,
                                            CompileOptions options) {
   ScriptOrigin origin(source->resource_name);
-  return Script::Compile(context, source->source_string, &origin);
+  if (options == kConsumeCodeCache && source->cached_data) {
+    return Script::CompileWithParserState(context,
+                                          source->source_string,
+                                          source->cached_data->data,
+                                          source->cached_data->length,
+                                          &origin);
+  } else {
+    return Script::Compile(context, source->source_string, &origin);
+  }
 }
 
 Local<Script> ScriptCompiler::Compile(Isolate* isolate,
@@ -269,5 +386,81 @@ MaybeLocal<Module> ScriptCompiler::CompileModule(
   // CHAKRA-TODO: how do we compile a module without running it?
   return Local<Module>();
   }
+
+MaybeLocal<Function> ScriptCompiler::CompileFunctionInContext(
+  Local<Context> context, Source* source, size_t arguments_count,
+  Local<String> arguments[], size_t context_extension_count,
+  Local<Object> context_extensions[],
+  CompileOptions options,
+  NoCacheReason no_cache_reason) {
+
+  std::wstring gen =
+    L"(function() {"
+    L"return function() {"
+    ;
+
+  if (context_extension_count != 0) {
+    gen += L"with (this) {";
+    for (size_t i = 1; i < context_extension_count; i++) {
+      gen += L"with (arguments[" + std::to_wstring(i - 1);
+      gen += L"]) {";
+    }
+  }
+
+  // body start
+
+  gen += L" return function(";
+
+  for (size_t i = 0; i < arguments_count; i++) {
+    if (i != 0) { gen += L","; }
+    v8::String::Value value(Isolate::GetCurrent(), arguments[i]);
+    gen += (wchar_t *)*value;
+  }
+
+  gen += L") {";
+
+  v8::String::Value sourceValue(Isolate::GetCurrent(), source->source_string);
+  gen += (wchar_t *)*sourceValue;
+
+  gen += L"};";
+
+  // body end
+
+  for (size_t i = 0; i < context_extension_count; i++) {
+    gen += L"}";
+  }
+
+  gen += L"};})()";
+
+  JsValueRef genStr;
+  if (JsCreateStringUtf16((uint16_t*)gen.c_str(), gen.length(), &genStr) != JsNoError) {
+    return MaybeLocal<Function>();
+  }
+  JsValueRef genFunc;
+  if (JsRun(genStr, currentContext++, *source->resource_name, JsParseScriptAttributeNone, &genFunc) != JsNoError) {
+    return MaybeLocal<Function>();
+  }
+
+  JsValueRef* args;
+  size_t cargs;
+  if (context_extension_count == 0) {
+    JsValueRef undef;
+    if (JsGetUndefinedValue(&undef) != JsNoError) {
+      return MaybeLocal<Function>();
+    }
+    args = &undef;
+    cargs = 1;
+  } else {
+    args = (JsValueRef*)context_extensions;
+    cargs = context_extension_count;
+  }
+  JsValueRef retFunc;
+  if (JsCallFunction(genFunc, args, cargs, &retFunc) !=
+      JsNoError) {
+    return MaybeLocal<Function>();
+  }
+
+  return Utils::ToLocal<Function>(retFunc);
+}
 
 }  // namespace v8

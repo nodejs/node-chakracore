@@ -37,6 +37,32 @@ ContextShim::Scope::~Scope() {
   this->contextShim->GetIsolateShim()->PopScope(this);
 }
 
+/* static */
+ContextShim* ContextShim::FromJsContextRef(JsContextRef contextRef) {
+  CHAKRA_ASSERT(contextRef != JS_INVALID_REFERENCE);
+
+  // TODO: Replace with a call to the Chakra static library (ChakraDirect)
+  //       when it is ported to node-chakracore.
+  void* data;
+  CHAKRA_VERIFY_NOERROR(JsGetContextData(contextRef, &data));
+  return static_cast<ContextShim*>(data);
+}
+
+/* static */
+ContextShim* ContextShim::FromContext(v8::Context* context) {
+  return FromJsContextRef(reinterpret_cast<JsContextRef*>(context));
+}
+
+/* static */
+ContextShim* ContextShim::FromJsValueRef(JsValueRef valueRef) {
+  JsContextRef contextRef;
+  if (JsGetContextOfObject(valueRef, &contextRef) != JsNoError) {
+    return nullptr;
+  }
+  CHAKRA_ASSERT(contextRef != nullptr);
+  return ContextShim::FromJsContextRef(contextRef);
+}
+
 ContextShim * ContextShim::New(IsolateShim * isolateShim, bool exposeGC,
                                bool useGlobalTTState,
                                JsValueRef globalObjectTemplateInstance) {

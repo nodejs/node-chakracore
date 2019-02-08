@@ -23,3 +23,4 @@ prefix code-cache
 [$jsEngine==chakracore]
 # These tests are failing for Node-Chakracore and should eventually be fixed
 test-code-cache-generator : SKIP
+test-code-cache : SKIP

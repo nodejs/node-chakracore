@@ -881,7 +881,7 @@ void Object::SetAccessorProperty(Local<Name> name, Local<Function> getter,
 Maybe<bool> Object::SetIntegrityLevel(Local<Context> context,
                                       IntegrityLevel level) {
   // CHAKRA-TODO: implement this later?
-  return Nothing<bool>();
+  return Just(true);
 }
 
 }  // namespace v8
