@@ -404,6 +404,22 @@ JsErrorCode ParseScript(StringUtf8* script,
                         bool isStrictMode,
                         JsValueRef* result);
 
+JsErrorCode SerializeParserState(StringUtf8* script,
+                                 JsSourceContext sourceContext,
+                                 JsValueRef sourceUrl,
+                                 bool isStrictMode,
+                                 JsValueRef* result);
+
+JsErrorCode DeserializeParserState(JsValueRef script,
+                                   JsSourceContext sourceContext,
+                                   JsValueRef sourceUrl,
+                                   JsValueRef parserState,
+                                   JsValueRef* result);
+
+JsErrorCode GetArrayBufferStorage(JsValueRef instance,
+                                  uint8_t** buffer,
+                                  unsigned int* bufferLength);
+
 JsErrorCode GetHiddenValuesTable(JsValueRef object,
                                 JsPropertyIdRef* hiddenValueIdRef,
                                 JsValueRef* hiddenValuesTable,

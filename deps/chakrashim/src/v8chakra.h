@@ -282,6 +282,11 @@ class Utils {
     return Local<T>(that);
   }
 
+  template <class T>
+  static Local<T> ToLocal(JsValueRef that) {
+    return Local<T>(that);
+  }
+
   static JsErrorCode GetObjectData(Object* object, ObjectData** objectData);
 
   static bool IsInstanceOf(Object* obj, ObjectTemplate* objectTemplate) {

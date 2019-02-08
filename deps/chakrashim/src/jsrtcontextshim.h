@@ -55,9 +55,14 @@ class ContextShim {
     _FunctionCount
   };
 
-  static ContextShim * New(IsolateShim * isolateShim, bool exposeGC,
-                           bool useGlobalTTState,
-                           JsValueRef globalObjectTemplateInstance);
+  static ContextShim* FromJsContextRef(JsContextRef contextRef);
+  static ContextShim* FromContext(v8::Context* context);
+  static ContextShim* FromJsValueRef(JsValueRef valueRef);
+  static ContextShim* New(IsolateShim* isolateShim,
+                          bool exposeGC,
+                          bool useGlobalTTState,
+                          JsValueRef globalObjectTemplateInstance);
+
   ~ContextShim();
   void EnsureInitialized();
 

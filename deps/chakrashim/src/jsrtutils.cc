@@ -814,6 +814,54 @@ JsErrorCode ParseScript(StringUtf8* script,
   }
 }
 
+JsErrorCode SerializeParserState(StringUtf8* script,
+                                 JsSourceContext sourceContext,
+                                 JsValueRef sourceUrl,
+                                 bool isStrictMode,
+                                 JsValueRef* result) {
+  if (isStrictMode) {
+    // do not append new line so the line numbers on error stack are correct
+    std::string useStrictTag("'use strict'; ");
+    useStrictTag.append(*script);
+    JsValueRef scriptToParse = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY(JsCreateString(useStrictTag.c_str(),
+                                 useStrictTag.length(),
+                                 &scriptToParse) == JsNoError);
+    return JsSerializeParserState(
+        scriptToParse, result, JsParseScriptAttributeNone);
+  } else {
+    JsValueRef scriptToParse = JS_INVALID_REFERENCE;
+    CHAKRA_VERIFY(JsCreateString(script->operator*(),
+                                 script->length(),
+                                 &scriptToParse) == JsNoError);
+    return JsSerializeParserState(
+        scriptToParse, result, JsParseScriptAttributeNone);
+  }
+}
+
+JsErrorCode DeserializeParserState(JsValueRef script,
+                                   JsSourceContext sourceContext,
+                                   JsValueRef sourceUrl,
+                                   JsValueRef parserState,
+                                   JsValueRef* result) {
+  Unimplemented("Enable when ChakraCore master merges-in to node-chakracore");
+  return JsErrorFatal;
+  /*
+  return JsDeserializeParserState(script,
+                                  sourceContext,
+                                  sourceUrl,
+                                  JsParseScriptAttributeNone,
+                                  parserState,
+                                  result);
+  */
+}
+
+JsErrorCode GetArrayBufferStorage(JsValueRef instance,
+                                  uint8_t** buffer,
+                                  unsigned int* bufferLength) {
+  return JsGetArrayBufferStorage(instance, (BYTE**)buffer, bufferLength);
+}
+
 JsErrorCode GetHiddenValuesTable(JsValueRef object,
                                 JsPropertyIdRef* hiddenValueIdRef,
                                 JsValueRef* hiddenValuesTable,

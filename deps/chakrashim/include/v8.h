@@ -947,12 +947,18 @@ class V8_EXPORT Script {
   V8_WARN_UNUSED_RESULT MaybeLocal<Value> Run(Local<Context> context);
 
   Local<UnboundScript> GetUnboundScript();
+
+  static MaybeLocal<Script> CompileWithParserState(
+      Local<Context> context,
+      Handle<String> source,
+      const uint8_t* buffer,
+      unsigned int bufferLength,
+      ScriptOrigin* origin = nullptr);
 };
 
 class V8_EXPORT ScriptCompiler {
  public:
   struct CachedData {
-    // CHAKRA-TODO: Not implemented
     enum BufferPolicy {
       BufferNotOwned,
       BufferOwned
@@ -960,12 +966,16 @@ class V8_EXPORT ScriptCompiler {
 
     const uint8_t* data;
     int length;
-    bool rejected = true;
+    bool rejected;
     BufferPolicy buffer_policy;
 
     CachedData();
     CachedData(const uint8_t* data, int length,
-               BufferPolicy buffer_policy = BufferNotOwned) {
+               BufferPolicy buffer_policy = BufferNotOwned)
+        : data(data),
+          length(length),
+          rejected(false),
+          buffer_policy(buffer_policy) {
     }
   };
 
@@ -975,20 +985,24 @@ class V8_EXPORT ScriptCompiler {
       Local<String> source_string,
       const ScriptOrigin& origin,
       CachedData * cached_data = nullptr)
-      : source_string(source_string), resource_name(origin.ResourceName()) {
+      : source_string(source_string),
+        resource_name(origin.ResourceName()),
+        cached_data(cached_data) {
     }
 
     Source(Local<String> source_string,  // NOLINT(runtime/explicit)
            CachedData * cached_data = nullptr)
-      : source_string(source_string) {
+      : source_string(source_string),
+        cached_data(cached_data) {
     }
 
-    const CachedData* GetCachedData() const { return nullptr; }
+    const CachedData* GetCachedData() const;
 
    private:
     friend ScriptCompiler;
     Local<String> source_string;
     Handle<Value> resource_name;
+    CachedData* cached_data;
   };
 
   enum CompileOptions {
@@ -996,7 +1010,9 @@ class V8_EXPORT ScriptCompiler {
     kProduceParserCache,
     kConsumeParserCache,
     kProduceCodeCache,
-    kConsumeCodeCache
+    kProduceFullCodeCache,
+    kConsumeCodeCache,
+    kEagerCompile
   };
 
   enum NoCacheReason {
@@ -1052,20 +1068,12 @@ class V8_EXPORT ScriptCompiler {
       Local<String> arguments[], size_t context_extension_count,
       Local<Object> context_extensions[],
       CompileOptions options = kNoCompileOptions,
-      NoCacheReason no_cache_reason = kNoCacheNoReason) {
-    return {};
-  }
+      NoCacheReason no_cache_reason = kNoCacheNoReason);
 
-  static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script) {
-      // BUGBUG: https://github.com/nodejs/node-chakracore/issues/560 - need to
-      //         implement this
-      return nullptr;
-  }
+  static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script);
 
   static CachedData* CreateCodeCache(Local<UnboundScript> unbound_script,
-                                     Local<String> source) {
-    return nullptr;
-  }
+                                     Local<String> source);
 
   static CachedData* CreateCodeCacheForFunction(Local<Function> function) {
     return nullptr;
