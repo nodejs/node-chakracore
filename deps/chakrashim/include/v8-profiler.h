@@ -41,6 +41,8 @@ class V8_EXPORT CpuProfiler {
   void SetIdle(bool is_idle) {}
   static CpuProfiler* New(Isolate* isolate) { return nullptr; };
   void Dispose() {}
+
+  static void UseDetailedSourcePositionsForProfiling(Isolate* isolate) {}
 };
 
 class V8_EXPORT OutputStream {  // NOLINT
