@@ -151,6 +151,13 @@ bool Isolate::AddMessageListener(MessageCallback that, Handle<Value> data) {
     reinterpret_cast<void*>(that));
 }
 
+bool Isolate::AddMessageListenerWithErrorLevel(MessageCallback that,
+                                      int message_levels,
+                                      Local<Value> data) {
+  // CHAKRA-TODO: Consume message levels
+  return AddMessageListener(that, data);
+}
+
 void Isolate::RemoveMessageListeners(MessageCallback that) {
   jsrt::IsolateShim::FromIsolate(this)->RemoveMessageListeners(
     reinterpret_cast<void*>(that));

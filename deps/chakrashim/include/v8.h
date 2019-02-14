@@ -1109,6 +1109,9 @@ class V8_EXPORT Message {
   V8_DEPRECATE_SOON("Use maybe version", int GetEndColumn()) const;
   V8_WARN_UNUSED_RESULT Maybe<int> GetEndColumn(Local<Context> context) const;
 
+  Isolate* GetIsolate() const;
+  int ErrorLevel() const;
+
   static const int kNoLineNumberInfo = 0;
   static const int kNoColumnInfo = 0;
   static const int kNoScriptIdInfo = 0;
@@ -2942,6 +2945,16 @@ class V8_EXPORT Isolate {
     kMinorGarbageCollection
   };
 
+  enum MessageErrorLevel {
+    kMessageLog = (1 << 0),
+    kMessageDebug = (1 << 1),
+    kMessageInfo = (1 << 2),
+    kMessageError = (1 << 3),
+    kMessageWarning = (1 << 4),
+    kMessageAll = kMessageLog | kMessageDebug | kMessageInfo | kMessageError |
+                  kMessageWarning,
+  };
+
   static Isolate* Allocate();
   static Isolate* AllocateWithTTDSupport(size_t optReplayUriLength,
                                          const char* optReplayUri,
@@ -3003,6 +3016,9 @@ class V8_EXPORT Isolate {
     JitCodeEventOptions options, JitCodeEventHandler event_handler);
   bool AddMessageListener(
     MessageCallback that, Handle<Value> data = Handle<Value>());
+  bool AddMessageListenerWithErrorLevel(MessageCallback that,
+                                        int message_levels,
+                                        Local<Value> data = Local<Value>());
   void RemoveMessageListeners(MessageCallback that);
   Local<Value> ThrowException(Local<Value> exception);
   HeapProfiler* GetHeapProfiler();
