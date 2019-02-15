@@ -351,7 +351,6 @@
         'src/heap_utils.cc',
         'src/js_native_api.h',
         'src/js_native_api_types.h',
-        'src/js_native_api_v8.cc',
         'src/js_native_api_v8.h',
         'src/js_native_api_v8_internals.h',
         'src/js_stream.cc',
@@ -512,6 +511,7 @@
         }, {
           'sources': [
             'src/node_api.cc',
+            'src/js_native_api_v8.cc'
           ],
         }],
         [ 'node_code_cache_path!=""', {
