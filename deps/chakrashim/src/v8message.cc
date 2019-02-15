@@ -124,4 +124,13 @@ int Message::GetEndColumn() const {
   return FromMaybe(GetEndColumn(Local<Context>()));
 }
 
+Isolate* Message::GetIsolate() const {
+  return jsrt::IsolateShim::GetCurrentAsIsolate();
+}
+
+int Message::ErrorLevel() const {
+  // CHAKRA-TODO: Implement this?
+  return Isolate::MessageErrorLevel::kMessageError;
+}
+
 }  // namespace v8
