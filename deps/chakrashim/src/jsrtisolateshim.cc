@@ -634,8 +634,8 @@ void* IsolateShim::GetData(uint32_t slot) {
 JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
   JsValueRef chakraShimArrayBuffer = JS_INVALID_REFERENCE;
   CHAKRA_VERIFY_NOERROR(JsCreateExternalArrayBuffer(
-      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_shim_value)),
-      sizeof(raw_chakra_shim_value), nullptr, nullptr, &chakraShimArrayBuffer));
+      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_shim_raw)),
+      sizeof(raw_chakra_shim_raw), nullptr, nullptr, &chakraShimArrayBuffer));
 
   return chakraShimArrayBuffer;
 }
@@ -643,8 +643,8 @@ JsValueRef IsolateShim::GetChakraShimJsArrayBuffer() {
 JsValueRef IsolateShim::GetChakraInspectorShimJsArrayBuffer() {
   JsValueRef chakraInspectorShimArrayBuffer = JS_INVALID_REFERENCE;
   CHAKRA_VERIFY_NOERROR(JsCreateExternalArrayBuffer(
-      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_inspector_value)),
-      sizeof(raw_chakra_inspector_value), nullptr, nullptr,
+      static_cast<void*>(const_cast<uint8_t*>(raw_chakra_inspector_raw)),
+      sizeof(raw_chakra_inspector_raw), nullptr, nullptr,
       &chakraInspectorShimArrayBuffer));
 
   return chakraInspectorShimArrayBuffer;
