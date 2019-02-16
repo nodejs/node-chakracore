@@ -61,22 +61,23 @@ as a _Contributor_. Ask if they have configured their git
 
 ### Closing Issues and Pull Requests
 
-Collaborators may close any issue or pull request they believe is
-not relevant for the future of the Node.js project. Where this is
-unclear, the issue should be left open for several days to allow for
-additional discussion. Where this does not yield input from Node.js
-Collaborators or additional evidence that the issue has relevance, the
-issue may be closed. Remember that issues can always be re-opened if
-necessary.
+Collaborators may close any issue or pull request that is not relevant to the
+future of the Node.js project. Where this is unclear, leave the issue or pull
+request open for several days to allow for discussion. Where this does not yield
+evidence that the issue or pull request has relevance, close it. Remember that
+issues and pull requests can always be re-opened if necessary.
 
 ### Author ready pull requests
 
-A pull request that is still awaiting the minimum review time is considered
-_author ready_ as soon as the CI has been started, it has at least two approvals
-(one Collaborator approval is enough if the pull request has been open for more
-than 7 days), and it has no outstanding review comments. Please always make sure
-to add the `author ready` label to the PR in that case and remove it again as
-soon as that condition is not met anymore.
+A pull request is _author ready_ when:
+
+* There is a CI run in progress or completed.
+* There are at least two Collaborator approvals, or at least one approval if the
+  pull request is older than 7 days.
+* There are no outstanding review comments.
+
+Please always add the `author ready` label to the PR in that case. Please always
+remove it again as soon as the conditions are not met anymore.
 
 ### Handling own pull requests
 
@@ -802,9 +803,8 @@ pulled from the staging branch into the LTS branch only when a release is
 being prepared and may be pulled into the LTS branch in a different order
 than they were landed in staging.
 
-Any Collaborator may land commits into a staging branch, but only the release
-team should land commits into the LTS branch while preparing a new
-LTS release.
+Only the members of the @nodejs/backporters team should land commits onto
+LTS staging branches.
 
 #### How can I help?
 
