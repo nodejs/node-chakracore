@@ -125,7 +125,7 @@ Every `Http2Session` instance is associated with exactly one [`net.Socket`][] or
 [`tls.TLSSocket`][] when it is created. When either the `Socket` or the
 `Http2Session` are destroyed, both will be destroyed.
 
-Because the of the specific serialization and processing requirements imposed
+Because of the specific serialization and processing requirements imposed
 by the HTTP/2 protocol, it is not recommended for user code to read data from
 or write data to a `Socket` instance bound to a `Http2Session`. Doing so can
 put the HTTP/2 session into an indeterminate state causing the session and
@@ -769,7 +769,7 @@ added: v10.12.0
 
 * `origins` {string[]}
 
-The `'origin'`  event is emitted whenever an `ORIGIN` frame is received by
+The `'origin'` event is emitted whenever an `ORIGIN` frame is received by
 the client. The event is emitted with an array of `origin` strings. The
 `http2session.originSet` will be updated to include the received
 origins.
@@ -1132,7 +1132,7 @@ added: v9.5.0
 
 * {HTTP/2 Headers Object}
 
-An object containing the outbound trailers sent for this this `HttpStream`.
+An object containing the outbound trailers sent for this `HttpStream`.
 
 #### http2stream.session
 <!-- YAML
@@ -1193,7 +1193,7 @@ added: v10.0.0
 
 Sends a trailing `HEADERS` frame to the connected HTTP/2 peer. This method
 will cause the `Http2Stream` to be immediately closed and must only be
-called after the `'wantTrailers'`  event has been emitted. When sending a
+called after the `'wantTrailers'` event has been emitted. When sending a
 request or sending a response, the `options.waitForTrailers` option must be set
 in order to keep the `Http2Stream` open after the final `DATA` frame so that
 trailers can be sent.
@@ -1729,7 +1729,7 @@ added: v8.4.0
 -->
 * `callback` {Function}
 
-Stops the server from accepting new connections.  See [`net.Server.close()`][].
+Stops the server from accepting new connections. See [`net.Server.close()`][].
 
 Note that this is not analogous to restricting new requests since HTTP/2
 connections are persistent. To achieve a similar graceful shutdown behavior,
@@ -1871,7 +1871,7 @@ added: v8.4.0
 -->
 * `callback` {Function}
 
-Stops the server from accepting new connections.  See [`tls.Server.close()`][].
+Stops the server from accepting new connections. See [`tls.Server.close()`][].
 
 Note that this is not analogous to restricting new requests since HTTP/2
 connections are persistent. To achieve a similar graceful shutdown behavior,
@@ -2531,7 +2531,7 @@ const server = http2.createServer({ settings });
 
 Once the client receives the `SETTINGS` frame from the server indicating that
 the extended CONNECT may be used, it may send `CONNECT` requests that use the
-`':protocol'`  HTTP/2 pseudo-header:
+`':protocol'` HTTP/2 pseudo-header:
 
 ```js
 const http2 = require('http2');
