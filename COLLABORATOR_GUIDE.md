@@ -61,45 +61,42 @@ as a _Contributor_. Ask if they have configured their git
 
 ### Closing Issues and Pull Requests
 
-Collaborators may close any issue or pull request they believe is
-not relevant for the future of the Node.js project. Where this is
-unclear, the issue should be left open for several days to allow for
-additional discussion. Where this does not yield input from Node.js
-Collaborators or additional evidence that the issue has relevance, the
-issue may be closed. Remember that issues can always be re-opened if
-necessary.
+Collaborators may close any issue or pull request that is not relevant to the
+future of the Node.js project. Where this is unclear, leave the issue or pull
+request open for several days to allow for discussion. Where this does not yield
+evidence that the issue or pull request has relevance, close it. Remember that
+issues and pull requests can always be re-opened if necessary.
 
 ### Author ready pull requests
 
-A pull request that is still awaiting the minimum review time is considered
-_author ready_ as soon as the CI has been started, it has at least two approvals
-(one Collaborator approval is enough if the pull request has been open for more
-than 7 days), and it has no outstanding review comments. Please always make sure
-to add the `author ready` label to the PR in that case and remove it again as
-soon as that condition is not met anymore.
+A pull request is _author ready_ when:
+
+* There is a CI run in progress or completed.
+* There are at least two Collaborator approvals, or at least one approval if the
+  pull request is older than 7 days.
+* There are no outstanding review comments.
+
+Please always add the `author ready` label to the pull request in that case.
+Please always remove it again as soon as the conditions are not met anymore.
 
 ### Handling own pull requests
 
-When you open a pull request, it is recommended to start a CI right away (see
-[testing and CI](#testing-and-ci) for instructions) and to post the link to it
-in a comment in the pull request. Starting a new CI after each update is also
-recommended (for example, after an additional code change or after rebasing).
+When you open a pull request, [start a CI](#testing-and-ci) right away and post
+the link to it in a comment in the pull request. Later, after new code changes
+or rebasing, start a new CI.
 
-As soon as the PR is ready to land, please do so. Landing your own pull requests
-allows other Collaborators to focus on other pull requests. If your pull request
-is still awaiting the [minimum time to land](#waiting-for-approvals), add the
-`author ready` label so other Collaborators know it can land as soon as the time
-ends. If instead you wish to land the PR yourself, indicate this intent by using
-the "assign yourself" button, to self-assign the PR.
+As soon as the pull request is ready to land, please do so. This allows other
+Collaborators to focus on other pull requests. If your pull request is not ready
+to land but is [author ready](#author-ready-pull-requests), add the
+`author ready` label. If you wish to land the pull request yourself, use the
+"assign yourself" link to self-assign it.
 
 ## Accepting Modifications
 
-All modifications to the Node.js code and documentation should be performed via
-GitHub pull requests, including modifications by Collaborators and TSC members.
-A pull request must be reviewed, and must also be tested with CI, before being
-landed into the codebase. There may be exceptions to the latter (the changed
-code cannot be tested with a CI or similar). If that is the case, please leave a
-comment that explains why the PR does not require a CI run.
+Contributors propose modifications to Node.js using GitHub pull requests. This
+is true for all modifications including those proposed by TSC members and other
+Collaborators. A pull request must pass code review and CI before landing into
+the codebase.
 
 ### Code Reviews
 
@@ -802,9 +799,8 @@ pulled from the staging branch into the LTS branch only when a release is
 being prepared and may be pulled into the LTS branch in a different order
 than they were landed in staging.
 
-Any Collaborator may land commits into a staging branch, but only the release
-team should land commits into the LTS branch while preparing a new
-LTS release.
+Only the members of the @nodejs/backporters team should land commits onto
+LTS staging branches.
 
 #### How can I help?
 

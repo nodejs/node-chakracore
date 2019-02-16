@@ -19,3 +19,8 @@ prefix wpt
 [$system==freebsd]
 
 [$system==aix]
+
+[$jsEngine==chakracore]
+# These tests require worker threads support, which is currently not implemented in Node-ChakraCore
+test-whatwg-console : SKIP
+test-whatwg-url : SKIP

@@ -12,6 +12,8 @@ test-net-connect-options-port: PASS,FLAKY
 test-http2-pipe: PASS,FLAKY
 test-worker-syntax-error: PASS,FLAKY
 test-worker-syntax-error-file: PASS,FLAKY
+# https://github.com/nodejs/node/issues/24456
+test-stream-pipeline-http2: PASS,FLAKY
 
 [$system==linux]
 
@@ -274,6 +276,11 @@ test-zlib-invalid-input-memory : SKIP
 
 # Depends on the V8 argument `--prof` which isn't supported by ChakraCore
 test-tick-processor-arguments : SKIP
+
+# These tests require async iterators which are not implemented in ChakraCore yet
+test-readline-async-iterators : SKIP
+test-readline-async-iterators-backpressure : SKIP
+test-readline-async-iterators-destroy : SKIP
 
 [$jsEngine==chakracore && $system==win32]
 # These tests are failing for Node-Chakracore and should eventually be fixed
