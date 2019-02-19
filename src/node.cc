@@ -2219,7 +2219,7 @@ void ProcessArgv(std::vector<std::string>* args,
       s_doTTReplay = true;
       s_doTTEnableDebug = true;
       s_ttoptReplayUri = per_process_opts->ttdReplayDebugUri.c_str();
-      s_ttoptReplayUriLength = per_process_opts->ttdReplayUri.length();
+      s_ttoptReplayUriLength = per_process_opts->ttdReplayDebugUri.length();
     }
     if (per_process_opts->ttdBreakFirst) {
       s_ttdStartupMode = (0x100 | 0x1);

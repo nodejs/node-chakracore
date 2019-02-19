@@ -333,7 +333,7 @@ void PerProcessOptionsParser::Initialize() {
             &PerProcessOptions::ttdReplayUri);
   AddOption("--replay-debug",
             "replay and debug using recording log",
-            &PerProcessOptions::ttdReplayUri);
+            &PerProcessOptions::ttdReplayDebugUri);
   AddOption("--break-first",
             "break at first statement when running in --replay-debug mode",
             &PerProcessOptions::ttdBreakFirst);
