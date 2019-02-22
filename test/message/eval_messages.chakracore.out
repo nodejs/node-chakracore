@@ -10,6 +10,8 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
    at evalScript (internal/bootstrap/node.js:*:*)
+   at executeUserCode (internal/bootstrap/node.js:*:*)
+   at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
    at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 42
@@ -25,6 +27,8 @@ Error: hello
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
    at evalScript (internal/bootstrap/node.js:*:*)
+   at executeUserCode (internal/bootstrap/node.js:*:*)
+   at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
    at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 [eval]:1
@@ -38,6 +42,8 @@ Error: hello
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
    at evalScript (internal/bootstrap/node.js:*:*)
+   at executeUserCode (internal/bootstrap/node.js:*:*)
+   at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
    at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 100
@@ -52,6 +58,8 @@ ReferenceError: Variable undefined in strict mode
    at Anonymous function ([eval]-wrapper:*:*)
    at Module.prototype._compile (internal/modules/cjs/loader.js:*:*)
    at evalScript (internal/bootstrap/node.js:*:*)
+   at executeUserCode (internal/bootstrap/node.js:*:*)
+   at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
    at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
 
