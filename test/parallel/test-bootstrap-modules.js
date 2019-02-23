@@ -9,7 +9,7 @@ const common = require('../common');
 const assert = require('assert');
 
 const isMainThread = common.isMainThread;
-const kMaxModuleCount = isMainThread ? (common.isChakraEngine ? 57 : 56) : 78;
+const kMaxModuleCount = isMainThread ? (common.isEngineChakra ? 58 : 59): 80;
 
 assert(list.length <= kMaxModuleCount,
        `Total length: ${list.length}\n` + list.join('\n')

@@ -7,6 +7,8 @@ prefix addons-napi
 [true] # This section applies to all platforms
 
 [$system==win32]
+# https://github.com/nodejs/node/issues/23621
+test_threadsafe_function/test: PASS,FLAKY
 
 [$system==linux]
 
