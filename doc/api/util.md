@@ -184,6 +184,10 @@ property take precedence over `--trace-deprecation` and
 added: v0.5.3
 changes:
   - version: REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/23708
+    description: The `%d`, `%f` and `%i` specifiers now support Symbols
+                 properly.
+  - version: REPLACEME
     pr-url: https://github.com/nodejs/node/pull/23162
     description: The `format` argument is now only taken as such if it actually
                  contains format specifiers.
@@ -198,6 +202,9 @@ changes:
     pr-url: https://github.com/nodejs/node/pull/17907
     description: The `%o` specifier's `depth` option will now fall back to the
                  default depth.
+  - version: v10.12.0
+    pr-url: https://github.com/nodejs/node/pull/22097
+    description: The `%d` and `%i` specifiers now support BigInt.
   - version: v8.4.0
     pr-url: https://github.com/nodejs/node/pull/14558
     description: The `%o` and `%O` specifiers are supported now.

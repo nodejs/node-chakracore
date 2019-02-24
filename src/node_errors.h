@@ -14,8 +14,6 @@
 
 namespace node {
 
-void DecorateErrorStack(Environment* env, const v8::TryCatch& try_catch);
-
 enum ErrorHandlingMode { CONTEXTIFY_ERROR, FATAL_ERROR, MODULE_ERROR };
 void AppendExceptionLine(Environment* env,
                          v8::Local<v8::Value> er,
@@ -71,6 +69,7 @@ void FatalException(const v8::FunctionCallbackInfo<v8::Value>& args);
   V(ERR_SCRIPT_EXECUTION_INTERRUPTED, Error)                                 \
   V(ERR_SCRIPT_EXECUTION_TIMEOUT, Error)                                     \
   V(ERR_STRING_TOO_LONG, Error)                                              \
+  V(ERR_TLS_INVALID_PROTOCOL_METHOD, TypeError)                              \
   V(ERR_TRANSFERRING_EXTERNALIZED_SHAREDARRAYBUFFER, TypeError)              \
 
 #define V(code, type)                                                         \
@@ -165,6 +164,35 @@ inline v8::Local<v8::Value> ERR_STRING_TOO_LONG(v8::Isolate* isolate) {
       return node::THROW_ERR_INVALID_ARG_TYPE(env,                           \
                                               prefix " must be a string");   \
   } while (0)
+
+namespace errors {
+
+class TryCatchScope : public v8::TryCatch {
+ public:
+  enum class CatchMode { kNormal, kFatal };
+
+  explicit TryCatchScope(Environment* env, CatchMode mode = CatchMode::kNormal)
+      : v8::TryCatch(env->isolate()), env_(env), mode_(mode) {}
+  ~TryCatchScope();
+
+  // Since the dtor is not virtual we need to make sure no one creates
+  // object of it in the free store that might be held by polymorphic pointers.
+  void* operator new(std::size_t count) = delete;
+  void* operator new[](std::size_t count) = delete;
+  TryCatchScope(TryCatchScope&) = delete;
+  TryCatchScope(TryCatchScope&&) = delete;
+  TryCatchScope operator=(TryCatchScope&) = delete;
+  TryCatchScope operator=(TryCatchScope&&) = delete;
+
+ private:
+  Environment* env_;
+  CatchMode mode_;
+};
+
+}  // namespace errors
+
+void DecorateErrorStack(Environment* env,
+                        const errors::TryCatchScope& try_catch);
 
 }  // namespace node
 

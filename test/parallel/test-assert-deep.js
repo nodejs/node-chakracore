@@ -239,6 +239,7 @@ assertNotDeepOrStrict(new Set([1, 2, 3, 4]), new Set([1, 2, 3]));
 assertDeepAndStrictEqual(new Set(['1', '2', '3']), new Set(['1', '2', '3']));
 assertDeepAndStrictEqual(new Set([[1, 2], [3, 4]]), new Set([[3, 4], [1, 2]]));
 assertNotDeepOrStrict(new Set([{ a: 0 }]), new Set([{ a: 1 }]));
+assertNotDeepOrStrict(new Set([Symbol()]), new Set([Symbol()]));
 
 {
   const a = [ 1, 2 ];
@@ -399,6 +400,14 @@ assertNotDeepOrStrict(
 assertOnlyDeepEqual(
   new Map([[1, {}]]),
   new Map([[true, {}]])
+);
+assertOnlyDeepEqual(
+  new Map([[undefined, true]]),
+  new Map([[null, true]])
+);
+assertNotDeepOrStrict(
+  new Map([[undefined, true]]),
+  new Map([[true, true]])
 );
 
 // GH-6416. Make sure circular refs don't throw.
@@ -569,9 +578,20 @@ assertOnlyDeepEqual(
   assertDeepAndStrictEqual(m3, m4);
 }
 
-// Handle sparse arrays
-assertDeepAndStrictEqual([1, , , 3], [1, , , 3]);
-assertOnlyDeepEqual([1, , , 3], [1, , , 3, , , ]);
+// Handle sparse arrays.
+{
+  assertDeepAndStrictEqual([1, , , 3], [1, , , 3]);
+  assertOnlyDeepEqual([1, , , 3], [1, , , 3, , , ]);
+  const a = new Array(3);
+  const b = new Array(3);
+  a[2] = true;
+  b[1] = true;
+  assertNotDeepOrStrict(a, b);
+  b[2] = true;
+  assertNotDeepOrStrict(a, b);
+  a[0] = true;
+  assertNotDeepOrStrict(a, b);
+}
 
 // Handle different error messages
 {
@@ -623,6 +643,8 @@ assertDeepAndStrictEqual(-0, -0);
   Object.defineProperty(obj2, Symbol(), { value: 1 });
   assertOnlyDeepEqual(obj1, obj3);
   assertDeepAndStrictEqual(obj1, obj2);
+  obj2[Symbol()] = true;
+  assertOnlyDeepEqual(obj1, obj2);
   // TypedArrays have a fast path. Test for this as well.
   const a = new Uint8Array(4);
   const b = new Uint8Array(4);
@@ -958,3 +980,17 @@ assert.deepStrictEqual(obj1, obj2);
   arr[2 ** 32] = true;
   assertNotDeepOrStrict(arr, [1, 2, 3]);
 }
+
+assert.throws(
+  () => assert.deepStrictEqual([1, 2, 3], [1, 2]),
+  {
+    code: 'ERR_ASSERTION',
+    name: 'AssertionError [ERR_ASSERTION]',
+    message: `${defaultMsgStartFull}\n\n` +
+            '  [\n' +
+            '    1,\n' +
+            '    2,\n' +
+            '+   3\n' +
+            '  ]'
+  }
+);
