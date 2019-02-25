@@ -13,7 +13,7 @@ SyntaxError: 'with' statements are not allowed in strict mode
    at executeUserCode (internal/bootstrap/node.js:*:*)
    at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
-   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
+   at Anonymous function (internal/bootstrap/node.js:*:*)
 42
 42
 [eval]:1
@@ -30,7 +30,7 @@ Error: hello
    at executeUserCode (internal/bootstrap/node.js:*:*)
    at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
-   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
+   at Anonymous function (internal/bootstrap/node.js:*:*)
 [eval]:1
 'use strict'; throw new Error("hello")
               ^
@@ -45,7 +45,7 @@ Error: hello
    at executeUserCode (internal/bootstrap/node.js:*:*)
    at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
-   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
+   at Anonymous function (internal/bootstrap/node.js:*:*)
 100
 [eval]:1
 'use strict'; var x = 100; y = x;
@@ -61,7 +61,7 @@ ReferenceError: Variable undefined in strict mode
    at executeUserCode (internal/bootstrap/node.js:*:*)
    at startExecution (internal/bootstrap/node.js:*:*)
    at startup (internal/bootstrap/node.js:*:*)
-   at bootstrapNodeJSCore (internal/bootstrap/node.js:*:*)
+   at Anonymous function (internal/bootstrap/node.js:*:*)
 
 vm.js:*
       return super.runInThisContext(...args);

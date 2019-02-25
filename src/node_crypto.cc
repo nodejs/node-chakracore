@@ -63,6 +63,8 @@ v8::MaybeLocal<v8::Object> New(Environment* env, unsigned char* udata,
 
 namespace crypto {
 
+using node::THROW_ERR_TLS_INVALID_PROTOCOL_METHOD;
+
 using v8::Array;
 using v8::Boolean;
 using v8::ConstructorBehavior;
@@ -421,17 +423,23 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
     // protocols are supported unless explicitly disabled (which we do below
     // for SSLv2 and SSLv3.)
     if (strcmp(*sslmethod, "SSLv2_method") == 0) {
-      return env->ThrowError("SSLv2 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv2 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv2_server_method") == 0) {
-      return env->ThrowError("SSLv2 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv2 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv2_client_method") == 0) {
-      return env->ThrowError("SSLv2 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv2 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv3_method") == 0) {
-      return env->ThrowError("SSLv3 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv3 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv3_server_method") == 0) {
-      return env->ThrowError("SSLv3 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv3 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv3_client_method") == 0) {
-      return env->ThrowError("SSLv3 methods disabled");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "SSLv3 methods disabled");
+      return;
     } else if (strcmp(*sslmethod, "SSLv23_method") == 0) {
       // noop
     } else if (strcmp(*sslmethod, "SSLv23_server_method") == 0) {
@@ -483,7 +491,8 @@ void SecureContext::Init(const FunctionCallbackInfo<Value>& args) {
       max_version = TLS1_2_VERSION;
       method = TLS_client_method();
     } else {
-      return env->ThrowError("Unknown method");
+      THROW_ERR_TLS_INVALID_PROTOCOL_METHOD(env, "Unknown method");
+      return;
     }
   }
 
@@ -4211,9 +4220,11 @@ void DiffieHellman::GenerateKeys(const FunctionCallbackInfo<Value>& args) {
 
   const BIGNUM* pub_key;
   DH_get0_key(diffieHellman->dh_.get(), &pub_key, nullptr);
-  size_t size = BN_num_bytes(pub_key);
+  const int size = BN_num_bytes(pub_key);
+  CHECK_GE(size, 0);
   char* data = Malloc(size);
-  BN_bn2bin(pub_key, reinterpret_cast<unsigned char*>(data));
+  CHECK_EQ(size,
+           BN_bn2binpad(pub_key, reinterpret_cast<unsigned char*>(data), size));
   args.GetReturnValue().Set(Buffer::New(env, data, size).ToLocalChecked());
 }
 
@@ -4229,9 +4240,11 @@ void DiffieHellman::GetField(const FunctionCallbackInfo<Value>& args,
   const BIGNUM* num = get_field(dh->dh_.get());
   if (num == nullptr) return env->ThrowError(err_if_null);
 
-  size_t size = BN_num_bytes(num);
+  const int size = BN_num_bytes(num);
+  CHECK_GE(size, 0);
   char* data = Malloc(size);
-  BN_bn2bin(num, reinterpret_cast<unsigned char*>(data));
+  CHECK_EQ(size,
+           BN_bn2binpad(num, reinterpret_cast<unsigned char*>(data), size));
   args.GetReturnValue().Set(Buffer::New(env, data, size).ToLocalChecked());
 }
 
@@ -4567,13 +4580,9 @@ void ECDH::GetPrivateKey(const FunctionCallbackInfo<Value>& args) {
   if (b == nullptr)
     return env->ThrowError("Failed to get ECDH private key");
 
-  int size = BN_num_bytes(b);
+  const int size = BN_num_bytes(b);
   unsigned char* out = node::Malloc<unsigned char>(size);
-
-  if (size != BN_bn2bin(b, out)) {
-    free(out);
-    return env->ThrowError("Failed to convert ECDH private key to Buffer");
-  }
+  CHECK_EQ(size, BN_bn2binpad(b, out, size));
 
   Local<Object> buf =
       Buffer::New(env, reinterpret_cast<char*>(out), size).ToLocalChecked();

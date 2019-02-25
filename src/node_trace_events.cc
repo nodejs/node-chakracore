@@ -21,6 +21,11 @@ using v8::Value;
 
 class NodeCategorySet : public BaseObject {
  public:
+  static void Initialize(Local<Object> target,
+                  Local<Value> unused,
+                  Local<Context> context,
+                  void* priv);
+
   static void New(const FunctionCallbackInfo<Value>& args);
   static void Enable(const FunctionCallbackInfo<Value>& args);
   static void Disable(const FunctionCallbackInfo<Value>& args);
@@ -103,7 +108,7 @@ void IsTraceCategoryEnabledCC(const FunctionCallbackInfo<Value>& args) {
 }
 #endif
 
-void Initialize(Local<Object> target,
+void NodeCategorySet::Initialize(Local<Object> target,
                 Local<Value> unused,
                 Local<Context> context,
                 void* priv) {
@@ -145,4 +150,5 @@ void Initialize(Local<Object> target,
 
 }  // namespace node
 
-NODE_MODULE_CONTEXT_AWARE_INTERNAL(trace_events, node::Initialize)
+NODE_MODULE_CONTEXT_AWARE_INTERNAL(trace_events,
+                                   node::NodeCategorySet::Initialize)
