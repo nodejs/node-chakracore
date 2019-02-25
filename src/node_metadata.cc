@@ -25,7 +25,13 @@ Metadata metadata;
 
 Metadata::Versions::Versions() {
   node = NODE_VERSION_STRING;
+
+#ifdef NODE_ENGINE_CHAKRACORE
+  chakracore = v8::V8::GetVersion();
+#else
   v8 = v8::V8::GetVersion();
+#endif
+
   uv = uv_version_string();
   zlib = ZLIB_VERSION;
   ares = ARES_VERSION_STR;

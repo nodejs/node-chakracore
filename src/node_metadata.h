@@ -7,9 +7,14 @@
 
 namespace node {
 
+#ifdef NODE_ENGINE_CHAKRACORE
+#define NODE_VERSIONS_KEY_ENGINE(V) V(chakracore)
+#else
+#define NODE_VERSIONS_KEY_ENGINE(V) V(v8)
+#endif
+
 #define NODE_VERSIONS_KEYS_BASE(V)                                             \
   V(node)                                                                      \
-  V(v8)                                                                        \
   V(uv)                                                                        \
   V(zlib)                                                                      \
   V(ares)                                                                      \
@@ -31,6 +36,7 @@ namespace node {
 
 #define NODE_VERSIONS_KEYS(V)                                                  \
   NODE_VERSIONS_KEYS_BASE(V)                                                   \
+  NODE_VERSIONS_KEY_ENGINE(V)                                                  \
   NODE_VERSIONS_KEY_HTTP(V)                                                    \
   NODE_VERSIONS_KEY_CRYPTO(V)
 
