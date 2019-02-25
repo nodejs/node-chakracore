@@ -88,6 +88,9 @@ test-vm-strict-assign : SKIP
 # This test requires promise swallowed rejection hook support missing in ChakraCore
 test-promise-swallowed-event : SKIP
 
+# The chakrashim implementation of IsNativeError doesn't distinguish fake errors
+test-internal-util-helpers : SKIP
+
 # These tests are flaky on ChakraCore
 test-child-process-fork-net : PASS,FLAKY
 test-http2-client-upload : PASS,FLAKY
