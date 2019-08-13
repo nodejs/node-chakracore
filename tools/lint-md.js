@@ -1516,6 +1516,8 @@ var PATTERN_TAG_HANDLE            = /^(?:!|!!|![a-z\-]+!)$/i;
 var PATTERN_TAG_URI               = /^(?:!|[^,\[\]\{\}])(?:%[0-9a-f]{2}|[0-9a-z\-#;\/\?:@&=\+\$,_\.!~\*'\(\)\[\]])*$/i;
 
 
+function _class(obj) { return Object.prototype.toString.call(obj); }
+
 function is_EOL(c) {
   return (c === 0x0A/* LF */) || (c === 0x0D/* CR */);
 }
@@ -1770,6 +1772,31 @@ function mergeMappings(state, destination, source, overridableKeys) {
 
 function storeMappingPair(state, _result, overridableKeys, keyTag, keyNode, valueNode, startLine, startPos) {
   var index, quantity;
+
+  // The output is a plain object here, so keys can only be strings.
+  // We need to convert keyNode to a string, but doing so can hang the process
+  // (deeply nested arrays that explode exponentially using aliases).
+  if (Array.isArray(keyNode)) {
+    keyNode = Array.prototype.slice.call(keyNode);
+
+    for (index = 0, quantity = keyNode.length; index < quantity; index += 1) {
+      if (Array.isArray(keyNode[index])) {
+        throwError(state, 'nested arrays are not supported inside keys');
+      }
+
+      if (typeof keyNode === 'object' && _class(keyNode[index]) === '[object Object]') {
+        keyNode[index] = '[object Object]';
+      }
+    }
+  }
+
+  // Avoid code execution in load() via toString property
+  // (still use its own toString for arrays, timestamps,
+  // and whatever user schema extensions happen to have @@toStringTag)
+  if (typeof keyNode === 'object' && _class(keyNode) === '[object Object]') {
+    keyNode = '[object Object]';
+  }
+
 
   keyNode = String(keyNode);
 
@@ -3195,16 +3222,17 @@ function encodeHex(character) {
 }
 
 function State$1(options) {
-  this.schema       = options['schema'] || default_full;
-  this.indent       = Math.max(1, (options['indent'] || 2));
-  this.skipInvalid  = options['skipInvalid'] || false;
-  this.flowLevel    = (common.isNothing(options['flowLevel']) ? -1 : options['flowLevel']);
-  this.styleMap     = compileStyleMap(this.schema, options['styles'] || null);
-  this.sortKeys     = options['sortKeys'] || false;
-  this.lineWidth    = options['lineWidth'] || 80;
-  this.noRefs       = options['noRefs'] || false;
-  this.noCompatMode = options['noCompatMode'] || false;
-  this.condenseFlow = options['condenseFlow'] || false;
+  this.schema        = options['schema'] || default_full;
+  this.indent        = Math.max(1, (options['indent'] || 2));
+  this.noArrayIndent = options['noArrayIndent'] || false;
+  this.skipInvalid   = options['skipInvalid'] || false;
+  this.flowLevel     = (common.isNothing(options['flowLevel']) ? -1 : options['flowLevel']);
+  this.styleMap      = compileStyleMap(this.schema, options['styles'] || null);
+  this.sortKeys      = options['sortKeys'] || false;
+  this.lineWidth     = options['lineWidth'] || 80;
+  this.noRefs        = options['noRefs'] || false;
+  this.noCompatMode  = options['noCompatMode'] || false;
+  this.condenseFlow  = options['condenseFlow'] || false;
 
   this.implicitTypes = this.schema.compiledImplicit;
   this.explicitTypes = this.schema.compiledExplicit;
@@ -3824,13 +3852,14 @@ function writeNode(state, level, object, block, compact, iskey) {
         }
       }
     } else if (type === '[object Array]') {
+      var arrayLevel = (state.noArrayIndent && (level > 0)) ? level - 1 : level;
       if (block && (state.dump.length !== 0)) {
-        writeBlockSequence(state, level, state.dump, compact);
+        writeBlockSequence(state, arrayLevel, state.dump, compact);
         if (duplicate) {
           state.dump = '&ref_' + duplicateIndex + state.dump;
         }
       } else {
-        writeFlowSequence(state, level, state.dump);
+        writeFlowSequence(state, arrayLevel, state.dump);
         if (duplicate) {
           state.dump = '&ref_' + duplicateIndex + ' ' + state.dump;
         }
@@ -5673,7 +5702,7 @@ var deepExtend = module.exports = function (/*obj_1, [obj_2], [obj_N]*/) {
 
 var minimist = function (args, opts) {
     if (!opts) opts = {};
-
+    
     var flags = { bools : {}, strings : {}, unknownFn: null };
 
     if (typeof opts['unknown'] === 'function') {
@@ -5687,7 +5716,7 @@ var minimist = function (args, opts) {
           flags.bools[key] = true;
       });
     }
-
+    
     var aliases = {};
     Object.keys(opts.alias || {}).forEach(function (key) {
         aliases[key] = [].concat(opts.alias[key]);
@@ -5706,12 +5735,12 @@ var minimist = function (args, opts) {
      });
 
     var defaults = opts['default'] || {};
-
+    
     var argv = { _ : [] };
     Object.keys(flags.bools).forEach(function (key) {
         setArg(key, defaults[key] === undefined ? false : defaults[key]);
     });
-
+    
     var notFlags = [];
 
     if (args.indexOf('--') !== -1) {
@@ -5732,7 +5761,7 @@ var minimist = function (args, opts) {
         var value = !flags.strings[key] && isNumber(val)
             ? Number(val) : val;
         setKey(argv, key.split('.'), value);
-
+        
         (aliases[key] || []).forEach(function (x) {
             setKey(argv, x.split('.'), value);
         });
@@ -5756,7 +5785,7 @@ var minimist = function (args, opts) {
             o[key] = [ o[key], value ];
         }
     }
-
+    
     function aliasIsBoolean(key) {
       return aliases[key].some(function (x) {
           return flags.bools[x];
@@ -5765,7 +5794,7 @@ var minimist = function (args, opts) {
 
     for (var i = 0; i < args.length; i++) {
         var arg = args[i];
-
+        
         if (/^--.+=/.test(arg)) {
             // Using [\s\S] instead of . because js doesn't support the
             // 'dotall' regex modifier. See:
@@ -5802,29 +5831,29 @@ var minimist = function (args, opts) {
         }
         else if (/^-[^-]+/.test(arg)) {
             var letters = arg.slice(1,-1).split('');
-
+            
             var broken = false;
             for (var j = 0; j < letters.length; j++) {
                 var next = arg.slice(j+2);
-
+                
                 if (next === '-') {
                     setArg(letters[j], next, arg);
                     continue;
                 }
-
+                
                 if (/[A-Za-z]/.test(letters[j]) && /=/.test(next)) {
                     setArg(letters[j], next.split('=')[1], arg);
                     broken = true;
                     break;
                 }
-
+                
                 if (/[A-Za-z]/.test(letters[j])
                 && /-?\d+(\.\d*)?(e-?\d+)?$/.test(next)) {
                     setArg(letters[j], next, arg);
                     broken = true;
                     break;
                 }
-
+                
                 if (letters[j+1] && letters[j+1].match(/\W/)) {
                     setArg(letters[j], arg.slice(j+2), arg);
                     broken = true;
@@ -5834,7 +5863,7 @@ var minimist = function (args, opts) {
                     setArg(letters[j], flags.strings[letters[j]] ? '' : true, arg);
                 }
             }
-
+            
             var key = arg.slice(-1)[0];
             if (!broken && key !== '-') {
                 if (args[i+1] && !/^(-|--)[^-]/.test(args[i+1])
@@ -5864,17 +5893,17 @@ var minimist = function (args, opts) {
             }
         }
     }
-
+    
     Object.keys(defaults).forEach(function (key) {
         if (!hasKey(argv, key.split('.'))) {
             setKey(argv, key.split('.'), defaults[key]);
-
+            
             (aliases[key] || []).forEach(function (x) {
                 setKey(argv, x.split('.'), defaults[key]);
             });
         }
     });
-
+    
     if (opts['--']) {
         argv['--'] = new Array();
         notFlags.forEach(function(key) {
@@ -8325,7 +8354,7 @@ function parse$2 (pattern, isSub) {
           // to do safely.  For now, this is safe and works.
           var cs = pattern.substring(classStart + 1, i);
           try {
-
+            
           } catch (er) {
             // not a valid class!
             var sp = this.parse(cs, SUBPARSE);
@@ -13780,7 +13809,7 @@ var textTable = function (rows_, opts) {
     var align = opts.align || [];
     var stringLength = opts.stringLength
         || function (s) { return String(s).length; };
-
+    
     var dotsizes = reduce(rows_, function (acc, row) {
         forEach(row, function (c, ix) {
             var n = dotindex(c);
@@ -13788,7 +13817,7 @@ var textTable = function (rows_, opts) {
         });
         return acc;
     }, []);
-
+    
     var rows = map$2(rows_, function (row) {
         return map$2(row, function (c_, ix) {
             var c = String(c_);
@@ -13801,7 +13830,7 @@ var textTable = function (rows_, opts) {
             else return c;
         });
     });
-
+    
     var sizes = reduce(rows, function (acc, row) {
         forEach(row, function (c, ix) {
             var n = stringLength(c);
@@ -13809,7 +13838,7 @@ var textTable = function (rows_, opts) {
         });
         return acc;
     }, []);
-
+    
     return map$2(rows, function (row) {
         return map$2(row, function (c, ix) {
             var n = (sizes[ix] - stringLength(c)) || 0;
@@ -13822,7 +13851,7 @@ var textTable = function (rows_, opts) {
                     + c + Array(Math.floor(n / 2 + 1)).join(' ')
                 ;
             }
-
+            
             return c + s;
         }).join(hsep).replace(/\s+$/, '');
     }).join('\n');
@@ -30708,91 +30737,64 @@ var remark = unified_1()
   .use(remarkStringify)
   .freeze();
 
-const _args = [["remark@10.0.0","/Users/daijiro/Developments/node/tools/node-lint-md-cli-rollup"]];
-const _from = "remark@10.0.0";
-const _id = "remark@10.0.0";
-const _inBundle = false;
-const _integrity = "sha512-0fZvVmd9CgDi1qHGsRTyhpJShw60r3/4OSdRpAx+I7CmE8/Jmt829T9KWHpw2Ygw3chRZ26sMorqb8aIolU9tQ==";
-const _location = "/remark";
-const _phantomChildren = {};
-const _requested = {"type":"version","registry":true,"raw":"remark@10.0.0","name":"remark","escapedName":"remark","rawSpec":"10.0.0","saveSpec":null,"fetchSpec":"10.0.0"};
-const _requiredBy = ["/"];
-const _resolved = "https://registry.npmjs.org/remark/-/remark-10.0.0.tgz";
-const _spec = "10.0.0";
-const _where = "/Users/daijiro/Developments/node/tools/node-lint-md-cli-rollup";
-const author = {"name":"Titus Wormer","email":"tituswormer@gmail.com","url":"http://wooorm.com"};
-const bugs = {"url":"https://github.com/remarkjs/remark/issues"};
-const contributors = [{"name":"Titus Wormer","email":"tituswormer@gmail.com","url":"http://wooorm.com"}];
-const dependencies = {"remark-parse":"^6.0.0","remark-stringify":"^6.0.0","unified":"^7.0.0"};
-const description = "Markdown processor powered by plugins";
-const devDependencies = {"tape":"^4.9.1"};
-const files = ["index.js"];
-const homepage = "http://remark.js.org";
-const keywords = ["markdown","abstract","syntax","tree","ast","parse","stringify","process"];
-const license = "MIT";
 const name = "remark";
-const repository = {"type":"git","url":"https://github.com/remarkjs/remark/tree/master/packages/remark"};
-const scripts = {"test":"tape test.js"};
 const version$1 = "10.0.0";
+const description = "Markdown processor powered by plugins";
+const license = "MIT";
+const keywords = ["markdown","abstract","syntax","tree","ast","parse","stringify","process"];
+const homepage = "http://remark.js.org";
+const repository = "https://github.com/remarkjs/remark/tree/master/packages/remark";
+const bugs = "https://github.com/remarkjs/remark/issues";
+const author = "Titus Wormer <tituswormer@gmail.com> (http://wooorm.com)";
+const contributors = ["Titus Wormer <tituswormer@gmail.com> (http://wooorm.com)"];
+const files = ["index.js"];
+const dependencies = {"remark-parse":"^6.0.0","remark-stringify":"^6.0.0","unified":"^7.0.0"};
+const devDependencies = {"tape":"^4.9.1"};
+const scripts = {"test":"tape test.js"};
 const xo = false;
+const _resolved = "https://registry.npmjs.org/remark/-/remark-10.0.0.tgz";
+const _integrity = "sha512-0fZvVmd9CgDi1qHGsRTyhpJShw60r3/4OSdRpAx+I7CmE8/Jmt829T9KWHpw2Ygw3chRZ26sMorqb8aIolU9tQ==";
+const _from = "remark@10.0.0";
 var _package = {
-	_args: _args,
-	_from: _from,
-	_id: _id,
-	_inBundle: _inBundle,
-	_integrity: _integrity,
-	_location: _location,
-	_phantomChildren: _phantomChildren,
-	_requested: _requested,
-	_requiredBy: _requiredBy,
-	_resolved: _resolved,
-	_spec: _spec,
-	_where: _where,
-	author: author,
-	bugs: bugs,
-	contributors: contributors,
-	dependencies: dependencies,
-	description: description,
-	devDependencies: devDependencies,
-	files: files,
-	homepage: homepage,
-	keywords: keywords,
-	license: license,
 	name: name,
-	repository: repository,
-	scripts: scripts,
 	version: version$1,
-	xo: xo
+	description: description,
+	license: license,
+	keywords: keywords,
+	homepage: homepage,
+	repository: repository,
+	bugs: bugs,
+	author: author,
+	contributors: contributors,
+	files: files,
+	dependencies: dependencies,
+	devDependencies: devDependencies,
+	scripts: scripts,
+	xo: xo,
+	_resolved: _resolved,
+	_integrity: _integrity,
+	_from: _from
 };
 
 var _package$1 = Object.freeze({
-	_args: _args,
-	_from: _from,
-	_id: _id,
-	_inBundle: _inBundle,
-	_integrity: _integrity,
-	_location: _location,
-	_phantomChildren: _phantomChildren,
-	_requested: _requested,
-	_requiredBy: _requiredBy,
-	_resolved: _resolved,
-	_spec: _spec,
-	_where: _where,
-	author: author,
-	bugs: bugs,
-	contributors: contributors,
-	dependencies: dependencies,
-	description: description,
-	devDependencies: devDependencies,
-	files: files,
-	homepage: homepage,
-	keywords: keywords,
-	license: license,
 	name: name,
-	repository: repository,
-	scripts: scripts,
 	version: version$1,
+	description: description,
+	license: license,
+	keywords: keywords,
+	homepage: homepage,
+	repository: repository,
+	bugs: bugs,
+	author: author,
+	contributors: contributors,
+	files: files,
+	dependencies: dependencies,
+	devDependencies: devDependencies,
+	scripts: scripts,
 	xo: xo,
+	_resolved: _resolved,
+	_integrity: _integrity,
+	_from: _from,
 	default: _package
 });
 

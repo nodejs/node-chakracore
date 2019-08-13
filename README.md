@@ -162,7 +162,7 @@ Build:
 
 ```console
 $ ./configure
-$ make 
+$ make
 ```
 
 To test if Node.js was built correctly with ChakraCore:
