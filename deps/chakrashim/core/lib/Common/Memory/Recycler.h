@@ -139,6 +139,8 @@ public:
         heapBlock = nullptr;
         return ptr = newPtr;
     };
+
+    void Clear() { heapBlock = nullptr; ptr = nullptr; };
 private:
     RecyclerWeakReferenceRegionItem(RecyclerWeakReferenceRegionItem<T>&) = delete;
 
@@ -809,7 +811,7 @@ private:
     inline bool ShouldCapturePageHeapAllocStack() const { return capturePageHeapAllocStack; }
     void VerifyPageHeapFillAfterAlloc(char* memBlock, size_t size, ObjectInfoBits attributes);
 #else
-    inline const bool IsPageHeapEnabled() const { return false; }
+    inline bool IsPageHeapEnabled() const { return false; }
     inline bool ShouldCapturePageHeapAllocStack() const { return false; }
 #endif
 
@@ -1152,7 +1154,7 @@ public:
 #ifdef NTBUILD
     void SetTelemetryBlock(RecyclerWatsonTelemetryBlock * telemetryBlock) { this->telemetryBlock = telemetryBlock; }
 #endif
-
+    
     uint GetPinnedObjectCount() const { return this->pinnedObjectMap.Count(); }
 
     void Prime();

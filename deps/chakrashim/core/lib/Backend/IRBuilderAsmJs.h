@@ -26,6 +26,7 @@ struct JitLoopBodyData
 {
 private:
     BVFixed* m_ldSlots = nullptr;
+    BVFixed* m_stSlots = nullptr;
     StackSym* m_loopBodyRetIPSym = nullptr;
     BVFixed* m_yieldRegs = nullptr;
     uint32 m_loopCurRegs[WAsmJs::LIMIT];
@@ -35,6 +36,7 @@ public:
     {
         Assert(ldSlots && stSlots && loopBodyRetIPSym);
         m_ldSlots = ldSlots;
+        m_stSlots = stSlots;
         m_loopBodyRetIPSym = loopBodyRetIPSym;
     }
     // Use m_yieldRegs initialization to determine if m_loopCurRegs is initialized
@@ -55,19 +57,14 @@ public:
     }
     bool IsYieldReg(Js::RegSlot reg) const
     {
-        if (!m_yieldRegs)
-        {
-            return false;
-        }
-        AssertOrFailFast(reg < m_yieldRegs->Length());
-        return m_yieldRegs->Test(reg);
+        return  m_yieldRegs && m_yieldRegs->Test(reg);
     }
     void SetRegIsYield(Js::RegSlot reg)
     {
         Assert(m_yieldRegs);
-        AssertOrFailFast(reg < m_yieldRegs->Length());
         m_yieldRegs->Set(reg);
     }
+    BVFixed* GetStSlots() const { return m_stSlots; }
     BVFixed* GetLdSlots() const { return m_ldSlots; }
     StackSym* GetLoopBodyRetIPSym() const { return m_loopBodyRetIPSym; }
 

@@ -16,11 +16,7 @@
 #endif
 
 #if defined(_UCRT) && _CONTROL_FLOW_GUARD
-# if _MSC_VER >= 1913
-#  include <cfguard.h>
-# else
-   extern "C" void __fastcall _guard_check_icall(_In_ uintptr_t _Target);
-# endif
+#include <cfguard.h>
 #endif
 
 ThreadContextInfo::ThreadContextInfo() :
@@ -379,15 +375,41 @@ ThreadContextInfo::ResetIsAllJITCodeInPreReservedRegion()
 }
 
 #ifdef ENABLE_GLOBALIZATION
-# if defined(_CONTROL_FLOW_GUARD)
+
+#if defined(_CONTROL_FLOW_GUARD)
 Js::DelayLoadWinCoreProcessThreads *
 ThreadContextInfo::GetWinCoreProcessThreads()
 {
     m_delayLoadWinCoreProcessThreads.EnsureFromSystemDirOnly();
     return &m_delayLoadWinCoreProcessThreads;
 }
-# endif
+
+Js::DelayLoadWinCoreMemory *
+ThreadContextInfo::GetWinCoreMemoryLibrary()
+{
+    m_delayLoadWinCoreMemoryLibrary.EnsureFromSystemDirOnly();
+    return &m_delayLoadWinCoreMemoryLibrary;
+}
 #endif
+
+bool
+ThreadContextInfo::IsCFGEnabled()
+{
+#if defined(_CONTROL_FLOW_GUARD)
+    PROCESS_MITIGATION_CONTROL_FLOW_GUARD_POLICY CfgPolicy;
+    m_delayLoadWinCoreProcessThreads.EnsureFromSystemDirOnly();
+    BOOL isGetMitigationPolicySucceeded = m_delayLoadWinCoreProcessThreads.GetMitigationPolicyForProcess(
+        GetCurrentProcess(),
+        ProcessControlFlowGuardPolicy,
+        &CfgPolicy,
+        sizeof(CfgPolicy));
+    Assert(isGetMitigationPolicySucceeded || !AutoSystemInfo::Data.IsCFGEnabled());
+    return CfgPolicy.EnableControlFlowGuard && AutoSystemInfo::Data.IsCFGEnabled();
+#else
+    return false;
+#endif // _CONTROL_FLOW_GUARD
+}
+#endif // ENABLE_GLOBALIZATION
 
 //Masking bits according to AutoSystemInfo::PageSize
 #define PAGE_START_ADDR(address) ((size_t)(address) & ~(size_t)(AutoSystemInfo::PageSize - 1))
@@ -405,7 +427,7 @@ ThreadContextInfo::SetValidCallTargetInternal(
     AnalysisAssert(!useFileAPI || fileHandle);
     AnalysisAssert(!useFileAPI || viewBase);
 #ifdef _CONTROL_FLOW_GUARD
-    if (GlobalSecurityPolicy::IsCFGEnabled())
+    if (IsCFGEnabled())
     {
 #ifdef _M_ARM
         AssertMsg(((uintptr_t)callTargetAddress & 0x1) != 0, "on ARM we expect the thumb bit to be set on anything we use as a call target");
@@ -465,7 +487,7 @@ ThreadContextInfo::SetValidCallTargetInternal(
             AssertMsg((size_t)callTargetAddress - (size_t)startAddressOfPage <= AutoSystemInfo::PageSize - 1, "Only last bits corresponding to PageSize should be masked");
             AssertMsg((size_t)startAddressOfPage + (size_t)codeOffset == (size_t)callTargetAddress, "Wrong masking of address?");
 
-            isCallTargetRegistrationSucceed = GlobalSecurityPolicy::SetProcessValidCallTargets(GetProcessHandle(), startAddressOfPage, AutoSystemInfo::PageSize, 1, callTargetInfo);
+            isCallTargetRegistrationSucceed = GetWinCoreMemoryLibrary()->SetProcessCallTargets(GetProcessHandle(), startAddressOfPage, AutoSystemInfo::PageSize, 1, callTargetInfo);
         }
         if (!isCallTargetRegistrationSucceed)
         {
@@ -487,11 +509,7 @@ ThreadContextInfo::SetValidCallTargetInternal(
             }
         }
 #if DBG
-        if (isSetValid
-#if ENABLE_OOP_NATIVE_CODEGEN
-            && !JITManager::GetJITManager()->IsOOPJITEnabled()
-#endif
-            )
+        if (isSetValid && !JITManager::GetJITManager()->IsOOPJITEnabled())
         {
             _GUARD_CHECK_ICALL((uintptr_t)callTargetAddress);
         }

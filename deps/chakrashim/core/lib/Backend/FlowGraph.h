@@ -575,7 +575,6 @@ public:
     BVSparse<JitArenaAllocator> *lossyInt32SymsOnEntry; // see GlobOptData::liveLossyInt32Syms
     BVSparse<JitArenaAllocator> *float64SymsOnEntry;
     BVSparse<JitArenaAllocator> *liveFieldsOnEntry;
-    SymToValueInfoMap           *symsRequiringCompensationToMergedValueInfoMap;
 
     BVSparse<JitArenaAllocator> *symsUsedBeforeDefined;                // stack syms that are live in the landing pad, and used before they are defined in the loop
     BVSparse<JitArenaAllocator> *likelyIntSymsUsedBeforeDefined;       // stack syms that are live in the landing pad with a likely-int value, and used before they are defined in the loop
@@ -588,7 +587,6 @@ public:
     // cleanup in PreOptPeep in the pre-pass of a loop. For aggressively transferring
     // values in prepass, we need to know if a source sym was ever assigned to in a loop.
     BVSparse<JitArenaAllocator> *symsAssignedToInLoop;
-    BVSparse<JitArenaAllocator> *preservesNumberValue;
 
     BailOutInfo *       bailOutInfo;
     IR::BailOutInstr *  toPrimitiveSideEffectCheck;
@@ -696,7 +694,6 @@ public:
         // Temporary map to reuse existing startIndexOpnd while emitting
         // 0 = !increment & !alreadyChanged, 1 = !increment & alreadyChanged, 2 = increment & !alreadyChanged, 3 = increment & alreadyChanged
         IR::RegOpnd* startIndexOpndCache[4];
-        IR::Instr* instr;
     } MemOpInfo;
 
     bool doMemOp : 1;
@@ -734,7 +731,6 @@ public:
         symsAssignedToInLoop(nullptr),
         needImplicitCallBailoutChecksForJsArrayCheckHoist(false),
         inductionVariables(nullptr),
-        preservesNumberValue(nullptr),
         dominatingLoopCountableBlock(nullptr),
         loopCount(nullptr),
         loopCountBasedBoundBaseSyms(nullptr),
@@ -745,8 +741,7 @@ public:
         allFieldsKilled(false),
         isLeaf(true),
         isProcessed(false),
-        initialValueFieldMap(alloc),
-        symsRequiringCompensationToMergedValueInfoMap(nullptr)
+        initialValueFieldMap(alloc)
     {
         this->loopNumber = ++func->loopCount;
     }

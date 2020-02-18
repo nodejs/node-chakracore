@@ -75,7 +75,6 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptTypedNumber.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JSONParser.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)JSONScanner.cpp" />
-    <ClCompile Include="$(MSBuildThisFileDirectory)JSONString.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)ProfileString.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)RootObjectBase.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)RuntimeFunction.cpp" />
@@ -150,6 +149,8 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)JSONStringifier.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)LazyJSONString.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)PropertyRecordUsageCache.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptBigInt.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)JavascriptBigIntObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\DetachedStateBase.h" />
@@ -159,6 +160,8 @@
     <ClInclude Include="..\SerializableFunctionFields.h" />
     <ClInclude Include="AtomicsObject.h" />
     <ClInclude Include="AtomicsOperations.h" />
+    <ClInclude Include="JavascriptBigInt.h" />
+    <ClInclude Include="JavascriptBigIntObject.h" />
     <ClInclude Include="PropertyRecordUsageCache.h" />
     <ClInclude Include="CustomExternalIterator.h" />
     <ClInclude Include="JsBuiltInEngineInterfaceExtensionObject.h" />
@@ -215,7 +218,6 @@
     <ClInclude Include="JavascriptWeakSet.h" />
     <ClInclude Include="JSONParser.h" />
     <ClInclude Include="JSONScanner.h" />
-    <ClInclude Include="JSONString.h" />
     <ClInclude Include="MapOrSetDataList.h" />
     <ClInclude Include="ProfileString.h" />
     <ClInclude Include="RootObjectBase.h" />
@@ -311,7 +313,6 @@
     <None Include="ConcatString.inl" />
     <None Include="SparseArraySegment.inl" />
     <None Include="JavascriptArray.inl" />
-    <None Include="JavascriptBoolean.inl" />
     <None Include="JavascriptLibrary.inl" />
     <None Include="JavascriptNumber.inl" />
     <None Include="JavascriptString.inl" />

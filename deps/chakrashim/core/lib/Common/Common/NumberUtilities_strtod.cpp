@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 #include "CommonCommonPch.h"
-#include "DataStructures/BigInt.h"
+#include "DataStructures/BigUInt.h"
 
 namespace Js
 {
@@ -719,7 +719,7 @@ and re-compare.
 template <typename EncodedChar>
 static double AdjustDbl(double dbl, const EncodedChar *prgch, int32 cch, int32 lwExp)
 {
-    Js::BigInt biDec, biDbl;
+    Js::BigUInt biDec, biDbl;
     int32 c2Dec, c2Dbl;
     int32 c5Dec, c5Dbl;
     int wAddHi, wT;
@@ -893,13 +893,13 @@ LFail:
 String to Double.
 ***************************************************************************/
 template <typename EncodedChar>
-double Js::NumberUtilities::StrToDbl( const EncodedChar *psz, const EncodedChar **ppchLim, bool& likelyInt )
+double Js::NumberUtilities::StrToDbl( const EncodedChar *psz, const EncodedChar **ppchLim, LikelyNumberType& likelyNumberType, bool isBigIntEnabled)
 {
     uint32 lu;
     BIGNUM num;
     BIGNUM numHi;
     BIGNUM numLo;
-    double dbl;
+    double dbl = 0;
     double dblLo;
 #if DBG
     bool canUseLowPrec = false;
@@ -990,12 +990,19 @@ LGetLeftDig:
     case 'E':
     case 'e':
         goto LGetExp;
+    case 'n':
+        if (isBigIntEnabled)
+        {
+            goto LBigInt;
+        }
+    default:
+        likelyNumberType = LikelyNumberType::Int;
     }
     goto LEnd;
 
 LGetRight:
     Assert(*pch == '.');
-    likelyInt = false;
+    likelyNumberType = LikelyNumberType::Double;
     pch++;
     if (NULL == pchMinDig)
     {
@@ -1043,6 +1050,13 @@ LGetExpDigits:
         if (lwExp > 100000000)
             lwExp = 100000000;
     }
+    goto LEnd;
+
+LBigInt:
+    pch++;
+    likelyNumberType = LikelyNumberType::BigInt;
+    *ppchLim = pch;
+    goto LDone;
 
 LEnd:
     *ppchLim = pch;
@@ -1256,8 +1270,8 @@ LDone:
     return dbl;
 }
 
-template double Js::NumberUtilities::StrToDbl<char16>( const char16 * psz, const char16 **ppchLim, bool& likelyInt );
-template double Js::NumberUtilities::StrToDbl<utf8char_t>(const utf8char_t * psz, const utf8char_t **ppchLim, bool& likelyInt);
+template double Js::NumberUtilities::StrToDbl<char16>( const char16 * psz, const char16 **ppchLim, LikelyNumberType& likelyInt, bool isBigIntEnabled );
+template double Js::NumberUtilities::StrToDbl<utf8char_t>(const utf8char_t * psz, const utf8char_t **ppchLim, LikelyNumberType& likelyInt, bool isBigIntEnabled );
 
 /***************************************************************************
 Uses big integer arithmetic to get the sequence of digits.
@@ -1272,9 +1286,9 @@ static BOOL FDblToRgbPrecise(double dbl, __out_ecount(kcbMaxRgb) byte *prgb, int
     int wExp10, wExp2, w1, w2;
     int c2Num, c2Den, c5Num, c5Den;
     double dblT;
-    Js::BigInt biNum, biDen, biHi, biLo;
-    Js::BigInt *pbiLo;
-    Js::BigInt biT;
+    Js::BigUInt biNum, biDen, biHi, biLo;
+    Js::BigUInt *pbiLo;
+    Js::BigUInt biT;
     uint32 rglu[2];
 
     // Caller should take care of 0, negative and non-finite values.
@@ -2439,8 +2453,8 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, __out_ecount(cchDst
     {
         if (FormatDigits(rgb, pbLim, wExp10, pchDst, cchDst))
         {
-            bool likelyInt = true;
-            dblT = StrToDbl<char16>(pchDst, &pch,likelyInt);
+            LikelyNumberType likelyInt = LikelyNumberType::Int;
+            dblT = StrToDbl<char16>(pchDst, &pch, likelyInt);
             Assert(0 == *pch);
             Assert(dblT == dbl);
         }
@@ -2465,7 +2479,7 @@ BOOL Js::NumberUtilities::FNonZeroFiniteDblToStr(double dbl, __out_ecount(cchDst
     }
 
 #if DBG
-    bool likelyInt = true;
+    LikelyNumberType likelyInt = LikelyNumberType::Int;
     dblT = StrToDbl<char16>(pchDst, &pch, likelyInt);
     Assert(0 == *pch);
     Assert(dblT == dbl);

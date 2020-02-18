@@ -80,7 +80,7 @@ public:
     void SetIsPRNGSeeded(bool value);
     void AddModuleRecordInfo(unsigned int moduleId, __int64 localExportSlotsAddr);
     void UpdateGlobalObjectThisAddr(intptr_t globalThis);
-    OOPEmitBufferManagerWithLock * GetEmitBufferManager(bool asmJsManager);
+    OOPEmitBufferManager * GetEmitBufferManager(bool asmJsManager);
     void DecommitEmitBufferManager(bool asmJsManager);
 #ifdef PROFILE_EXEC
     Js::ScriptContextProfiler*  GetCodeGenProfiler(_In_ PageAllocator* pageAllocator);
@@ -100,11 +100,10 @@ private:
     Js::ScriptContextProfiler * codeGenProfiler;
     CriticalSection profilerCS;
 #endif
-    CriticalSection m_cs;
     ArenaAllocator m_sourceCodeArena;
 
-    OOPEmitBufferManagerWithLock m_interpreterThunkBufferManager;
-    OOPEmitBufferManagerWithLock m_asmJsInterpreterThunkBufferManager;
+    OOPEmitBufferManager m_interpreterThunkBufferManager;
+    OOPEmitBufferManager m_asmJsInterpreterThunkBufferManager;
 
     ScriptContextDataIDL m_contextData;
     intptr_t m_globalThisAddr;

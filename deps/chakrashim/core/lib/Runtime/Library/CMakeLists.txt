@@ -46,7 +46,6 @@ set(CRLIB_SOURCE_CODES
     JSONParser.cpp
     JSONScanner.cpp
     JSONStack.cpp
-    JSONString.cpp
     JSONStringBuilder.cpp
     JSONStringifier.cpp
     JavascriptArray.cpp
@@ -86,6 +85,8 @@ set(CRLIB_SOURCE_CODES
     JavascriptStringEnumerator.cpp
     JavascriptStringIterator.cpp
     JavascriptStringObject.cpp
+    JavascriptBigInt.cpp
+    JavascriptBigIntObject.cpp
     JavascriptSymbol.cpp
     JavascriptSymbolObject.cpp
     JavascriptTypedNumber.cpp

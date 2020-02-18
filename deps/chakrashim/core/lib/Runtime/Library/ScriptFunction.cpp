@@ -14,28 +14,16 @@ using namespace Js;
         JavascriptFunction(type, functionInfo)
     {}
 
-    bool ScriptFunctionBase::Is(Var func)
+    template <> bool Js::VarIsImpl<ScriptFunctionBase>(RecyclableObject* obj)
     {
-        if (JavascriptFunction::Is(func))
+        if (VarIs<JavascriptFunction>(obj))
         {
-            JavascriptFunction *function = JavascriptFunction::UnsafeFromVar(func);
+            JavascriptFunction *function = UnsafeVarTo<JavascriptFunction>(obj);
             return ScriptFunction::Test(function) || JavascriptGeneratorFunction::Test(function)
                 || JavascriptAsyncFunction::Test(function);
         }
 
         return false;
-    }
-
-    ScriptFunctionBase * ScriptFunctionBase::FromVar(Var func)
-    {
-        AssertOrFailFast(ScriptFunctionBase::Is(func));
-        return reinterpret_cast<ScriptFunctionBase *>(func);
-    }
-
-    ScriptFunctionBase * ScriptFunctionBase::UnsafeFromVar(Var func)
-    {
-        Assert(ScriptFunctionBase::Is(func));
-        return reinterpret_cast<ScriptFunctionBase *>(func);
     }
 
     ScriptFunction::ScriptFunction(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType)
@@ -160,26 +148,9 @@ using namespace Js;
         for (uint i = 0; i < length; i++)
         {
             Var scope = pDisplay->GetItem(i);
-            RecyclableObject *scopeObj = RecyclableObject::FromVar(scope);
+            RecyclableObject *scopeObj = VarTo<RecyclableObject>(scope);
             scopeObj->InvalidateCachedScope();
         }
-    }
-
-    bool ScriptFunction::Is(Var func)
-    {
-        return JavascriptFunction::Is(func) && JavascriptFunction::UnsafeFromVar(func)->IsScriptFunction();
-    }
-
-    ScriptFunction * ScriptFunction::FromVar(Var func)
-    {
-        AssertOrFailFast(ScriptFunction::Is(func));
-        return reinterpret_cast<ScriptFunction *>(func);
-    }
-
-    ScriptFunction * ScriptFunction::UnsafeFromVar(Var func)
-    {
-        Assert(ScriptFunction::Is(func));
-        return reinterpret_cast<ScriptFunction *>(func);
     }
 
     ProxyEntryPointInfo * ScriptFunction::GetEntryPointInfo() const
@@ -325,117 +296,6 @@ using namespace Js;
         return this->GetFunctionProxy()->EnsureDeserialized()->GetCachedSourceString();
     }
 
-    JavascriptString * ScriptFunction::FormatToString(JavascriptString* inputString)
-    {
-        FunctionProxy* proxy = this->GetFunctionProxy();
-        ParseableFunctionInfo * pFuncBody = proxy->EnsureDeserialized();
-        JavascriptString * returnStr = nullptr;
-
-        EnterPinnedScope((volatile void**)& inputString);
-        const char16 * inputStr = inputString->GetString();
-        const char16 * paramStr = wcschr(inputStr, _u('('));
-
-        if (paramStr == nullptr || wcscmp(pFuncBody->GetDisplayName(), Js::Constants::EvalCode) == 0)
-        {
-            Assert(pFuncBody->IsEval());
-            return inputString;
-        }
-
-        ScriptContext* scriptContext = this->GetScriptContext();
-        JavascriptLibrary* library = scriptContext->GetLibrary();
-        bool isClassMethod = this->GetFunctionInfo()->IsClassMethod() || this->GetFunctionInfo()->IsClassConstructor();
-
-        JavascriptString* prefixString = nullptr;
-        uint prefixStringLength = 0;
-        const char16* name = _u("");
-        charcount_t nameLength = 0;
-
-        if (!isClassMethod)
-        {
-            prefixString = library->GetFunctionPrefixString();
-            if (pFuncBody->IsGenerator())
-            {
-                prefixString = library->GetGeneratorFunctionPrefixString();
-            }
-            else if (pFuncBody->IsAsync())
-            {
-                prefixString = library->GetAsyncFunctionPrefixString();
-            }
-            prefixStringLength = prefixString->GetLength();
-
-            if (pFuncBody->GetIsAccessor())
-            {
-                name = pFuncBody->GetShortDisplayName(&nameLength);
-
-            }
-            else if (pFuncBody->GetIsDeclaration() || pFuncBody->GetIsNamedFunctionExpression())
-            {
-                name = pFuncBody->GetDisplayName();
-                nameLength = pFuncBody->GetDisplayNameLength();
-                if (name == Js::Constants::FunctionCode)
-                {
-                    name = Js::Constants::Anonymous;
-                    nameLength = Js::Constants::AnonymousLength;
-                }
-
-            }
-        }
-        else
-        {
-            if (this->GetFunctionInfo()->IsClassConstructor())
-            {
-                name = _u("constructor");
-                nameLength = _countof(_u("constructor")) -1; //subtract off \0
-            }
-            else
-            {
-                name = pFuncBody->GetShortDisplayName(&nameLength); //strip off prototype.
-            }
-        }
-
-        Var computedNameVar = this->GetComputedNameVar();
-
-        ENTER_PINNED_SCOPE(JavascriptString, computedName);
-        if (computedNameVar != nullptr)
-        {
-            computedName = ScriptFunction::GetComputedName(computedNameVar, scriptContext);
-            prefixString = nullptr;
-            prefixStringLength = 0;
-            name = computedName->GetString();
-            nameLength = computedName->GetLength();
-        }
-
-        uint functionBodyLength = inputString->GetLength() - ((uint)(paramStr - inputStr));
-        size_t totalLength = prefixStringLength + functionBodyLength + nameLength;
-
-        if (!IsValidCharCount(totalLength))
-        {
-            // We throw here because computed property names are evaluated at runtime and
-            // thus are not a subset string of function body source (parameter inputString).
-            // For all other cases totalLength <= inputString->GetLength().
-            JavascriptExceptionOperators::ThrowOutOfMemory(this->GetScriptContext());
-        }
-
-        char16 * funcBodyStr = RecyclerNewArrayLeaf(this->GetScriptContext()->GetRecycler(), char16, totalLength);
-        char16 * funcBodyStrStart = funcBodyStr;
-        if (prefixString != nullptr)
-        {
-            js_wmemcpy_s(funcBodyStr, prefixStringLength, prefixString->GetString(), prefixStringLength);
-            funcBodyStrStart += prefixStringLength;
-        }
-
-        js_wmemcpy_s(funcBodyStrStart, nameLength, name, nameLength);
-        funcBodyStrStart = funcBodyStrStart + nameLength;
-        js_wmemcpy_s(funcBodyStrStart, functionBodyLength, paramStr, functionBodyLength);
-
-        returnStr = LiteralString::NewCopyBuffer(funcBodyStr, (charcount_t)totalLength, scriptContext);
-
-        LEAVE_PINNED_SCOPE();   //  computedName
-        LeavePinnedScope();     //  inputString
-
-        return returnStr;
-    }
-
     JavascriptString * ScriptFunction::EnsureSourceString()
     {
         // The function may be defer serialize, need to be deserialized
@@ -474,28 +334,39 @@ using namespace Js;
 
             charcount_t cch = pFuncBody->LengthInChars();
             size_t cbLength = pFuncBody->LengthInBytes();
-            LPCUTF8 pbStart = pFuncBody->GetSource(_u("ScriptFunction::EnsureSourceString"));
-            BufferStringBuilder builder(cch, scriptContext);
-            utf8::DecodeOptions options = pFuncBody->GetUtf8SourceInfo()->IsCesu8() ? utf8::doAllowThreeByteSurrogates : utf8::doDefault;
-            size_t decodedCount = utf8::DecodeUnitsInto(builder.DangerousGetWritableBuffer(), pbStart, pbStart + cbLength, options);
+            LPCUTF8 pbStart = pFuncBody->GetToStringSource(_u("ScriptFunction::EnsureSourceString"));
+            // cch and cbLength refer to the length of the parse, which may be smaller than the length of the to-string function
+            Assert(pFuncBody->StartOffset() >= pFuncBody->PrintableStartOffset());
+            size_t cbPreludeLength = pFuncBody->StartOffset() - pFuncBody->PrintableStartOffset();
+            Assert(cbPreludeLength < MaxCharCount);
+            // the toString of a function may include some prelude, e.g. the computed name expression.
+            // We do not store the char-index of the start, but if there are cbPreludeLength bytes difference,
+            // then that is an upper bound on the number of characters difference.
+            // We also assume that function.toString is relatively infrequent, and non-ascii characters in
+            // a prelude are relatively infrequent, so the inaccuracy here should in general be insignificant
 
-            if (decodedCount != cch)
+            BufferStringBuilder builder(cch + static_cast<charcount_t>(cbPreludeLength), scriptContext);
+            utf8::DecodeOptions options = pFuncBody->GetUtf8SourceInfo()->IsCesu8() ? utf8::doAllowThreeByteSurrogates : utf8::doDefault;
+            size_t decodedCount = utf8::DecodeUnitsInto(builder.DangerousGetWritableBuffer(), pbStart, pbStart + cbLength + cbPreludeLength, options);
+
+            if (decodedCount < cch)
             {
                 AssertMsg(false, "Decoded incorrect number of characters for function body");
                 Js::Throw::FatalInternalError();
             }
-
-            if (pFuncBody->IsLambda() || this->GetFunctionInfo()->IsActiveScript() || this->GetFunctionInfo()->IsClassConstructor()
-#ifdef ENABLE_PROJECTION
-                || scriptContext->GetConfig()->IsWinRTEnabled()
-#endif
-                )
+            else if (decodedCount < cch + static_cast<charcount_t>(cbPreludeLength))
             {
-                cachedSourceString = builder.ToString();
+                Recycler* recycler = scriptContext->GetRecycler();
+
+                char16* buffer = RecyclerNewArrayLeaf(recycler, char16, decodedCount + 1);
+                wmemcpy_s(buffer, decodedCount, builder.DangerousGetWritableBuffer(), decodedCount);
+                buffer[decodedCount] = 0;
+
+                cachedSourceString = JavascriptString::NewWithBuffer(buffer, static_cast<charcount_t>(decodedCount), scriptContext);
             }
             else
             {
-                cachedSourceString = FormatToString(builder.ToString());
+                cachedSourceString = builder.ToString();
             }
         }
         else
@@ -662,23 +533,6 @@ using namespace Js;
         ScriptFunction(proxy, deferredPrototypeType), m_moduleEnvironment(nullptr)
     {}
 
-    bool AsmJsScriptFunction::Is(Var func)
-    {
-        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->IsAsmJsFunction();
-    }
-
-    AsmJsScriptFunction* AsmJsScriptFunction::FromVar(Var func)
-    {
-        AssertOrFailFast(AsmJsScriptFunction::Is(func));
-        return reinterpret_cast<AsmJsScriptFunction *>(func);
-    }
-
-    AsmJsScriptFunction* AsmJsScriptFunction::UnsafeFromVar(Var func)
-    {
-        Assert(AsmJsScriptFunction::Is(func));
-        return reinterpret_cast<AsmJsScriptFunction *>(func);
-    }
-
     AsmJsScriptFunction * AsmJsScriptFunction::OP_NewAsmJsFunc(FrameDisplay *environment, FunctionInfoPtrPtr infoRef)
     {
         AssertMsg(infoRef != nullptr, "BYTE-CODE VERIFY: Must specify a valid function to create");
@@ -714,23 +568,6 @@ using namespace Js;
         Assert(!proxy->GetFunctionInfo()->HasComputedName());
     }
 
-    bool WasmScriptFunction::Is(Var func)
-    {
-        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->IsWasmFunction();
-    }
-
-    WasmScriptFunction* WasmScriptFunction::FromVar(Var func)
-    {
-        AssertOrFailFast(WasmScriptFunction::Is(func));
-        return reinterpret_cast<WasmScriptFunction *>(func);
-    }
-
-    WasmScriptFunction* WasmScriptFunction::UnsafeFromVar(Var func)
-    {
-        Assert(WasmScriptFunction::Is(func));
-        return reinterpret_cast<WasmScriptFunction *>(func);
-    }
-
     WebAssemblyMemory* WasmScriptFunction::GetWebAssemblyMemory() const
     {
         return (WebAssemblyMemory*)PointerValue(
@@ -741,23 +578,6 @@ using namespace Js;
     ScriptFunctionWithInlineCache::ScriptFunctionWithInlineCache(FunctionProxy * proxy, ScriptFunctionType* deferredPrototypeType) :
         ScriptFunction(proxy, deferredPrototypeType)
     {}
-
-    bool ScriptFunctionWithInlineCache::Is(Var func)
-    {
-        return ScriptFunction::Is(func) && ScriptFunction::UnsafeFromVar(func)->GetHasInlineCaches();
-    }
-
-    ScriptFunctionWithInlineCache* ScriptFunctionWithInlineCache::FromVar(Var func)
-    {
-        AssertOrFailFast(ScriptFunctionWithInlineCache::Is(func));
-        return reinterpret_cast<ScriptFunctionWithInlineCache *>(func);
-    }
-
-    ScriptFunctionWithInlineCache* ScriptFunctionWithInlineCache::UnsafeFromVar(Var func)
-    {
-        Assert(ScriptFunctionWithInlineCache::Is(func));
-        return reinterpret_cast<ScriptFunctionWithInlineCache *>(func);
-    }
 
     InlineCache * ScriptFunctionWithInlineCache::GetInlineCache(uint index)
     {
@@ -917,9 +737,9 @@ using namespace Js;
 
     bool ScriptFunction::GetSymbolName(Var computedNameVar, const char16** symbolName, charcount_t* length)
     {
-        if (nullptr != computedNameVar && JavascriptSymbol::Is(computedNameVar))
+        if (nullptr != computedNameVar && VarIs<JavascriptSymbol>(computedNameVar))
         {
-            const PropertyRecord* symbolRecord = JavascriptSymbol::FromVar(computedNameVar)->GetValue();
+            const PropertyRecord* symbolRecord = VarTo<JavascriptSymbol>(computedNameVar)->GetValue();
             *symbolName = symbolRecord->GetBuffer();
             *length = symbolRecord->GetLength();
             return true;

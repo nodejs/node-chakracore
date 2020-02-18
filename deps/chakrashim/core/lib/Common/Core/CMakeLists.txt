@@ -11,7 +11,6 @@ add_library (Chakra.Common.Core OBJECT
     DelayLoadLibrary.cpp
     EtwTraceCore.cpp
     FaultInjection.cpp
-    GlobalSecurityPolicy.cpp
     Output.cpp
     PerfCounter.cpp
     PerfCounterImpl.cpp

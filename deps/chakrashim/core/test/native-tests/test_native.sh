@@ -47,7 +47,7 @@ TEST () {
 }
 
 RES=$(c++ --version)
-if [[ ! $RES =~ "Apple " ]]; then
+if [[ ! $RES =~ "Apple LLVM" ]]; then
     FIND_CLANG
 else
     CC="cc"

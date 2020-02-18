@@ -150,7 +150,7 @@ namespace Js
             Assert(this->GetTypeHandler()->IsSharable());
             return true;
         }
-        if (this->GetTypeHandler()->IsSharable() && this->GetTypeHandler()->GetMayBecomeShared())
+        if (this->GetTypeHandler()->IsSharable())
         {
             LockType();
             this->GetTypeHandler()->ShareTypeHandler(this->GetScriptContext());
@@ -158,11 +158,6 @@ namespace Js
             return true;
         }
         return false;
-    }
-
-    DynamicTypeHandler * DynamicType::DuplicateTypeHandler()
-    {
-        return GetTypeHandler()->Clone(this->GetRecycler());
     }
 
     bool
@@ -454,7 +449,7 @@ namespace Js
     {
         if (JavascriptConversion::IsCallable(toPrimitiveFunction))
         {
-            RecyclableObject* toStringFunction = RecyclableObject::FromVar(toPrimitiveFunction);
+            RecyclableObject* toStringFunction = VarTo<RecyclableObject>(toPrimitiveFunction);
 
             ThreadContext * threadContext = requestContext->GetThreadContext();
             Var aResult = threadContext->ExecuteImplicitCall(toStringFunction, ImplicitCall_ToPrimitive, [=]() -> Js::Var

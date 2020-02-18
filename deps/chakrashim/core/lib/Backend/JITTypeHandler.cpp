@@ -19,13 +19,7 @@ JITTypeHandler::IsObjectHeaderInlinedTypeHandler() const
 bool
 JITTypeHandler::IsLocked() const
 {
-    return Js::DynamicTypeHandler::GetIsLocked(m_data.flags);
-}
-
-bool
-JITTypeHandler::IsPrototype() const
-{
-    return Js::DynamicTypeHandler::GetIsPrototype(m_data.flags);
+    return m_data.isLocked != FALSE;
 }
 
 uint16

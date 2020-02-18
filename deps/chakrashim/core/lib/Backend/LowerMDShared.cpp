@@ -191,12 +191,18 @@ LowererMD::LowerCallHelper(IR::Instr *instrCall)
     IR::JnHelperMethod  helperMethod = instrCall->GetSrc1()->AsHelperCallOpnd()->m_fnHelper;
 
     instrCall->FreeSrc1();
-
+    
 #ifndef _M_X64
+    bool callHasDst = instrCall->GetDst() != nullptr;
     prevInstr = ChangeToHelperCall(instrCall, helperMethod);
-#endif
-
+    if (callHasDst)
+    {
+        prevInstr = prevInstr->m_prev;
+    }
+    Assert(prevInstr->GetSrc1()->IsHelperCallOpnd() && prevInstr->GetSrc1()->AsHelperCallOpnd()->m_fnHelper == helperMethod);
+#else
     prevInstr = instrCall;
+#endif
 
     while (argOpnd)
     {
@@ -206,11 +212,14 @@ LowererMD::LowerCallHelper(IR::Instr *instrCall)
         Assert(regArg->m_sym->m_isSingleDef);
         IR::Instr *instrArg = regArg->m_sym->m_instrDef;
 
-        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A ||
-            (helperMethod == IR::JnHelperMethod::HelperOP_InitCachedScope && instrArg->m_opcode == Js::OpCode::ExtendArg_A) ||
-            (helperMethod == IR::JnHelperMethod::HelperScrFunc_OP_NewScFuncHomeObj && instrArg->m_opcode == Js::OpCode::ExtendArg_A) ||
-            (helperMethod == IR::JnHelperMethod::HelperScrFunc_OP_NewScGenFuncHomeObj && instrArg->m_opcode == Js::OpCode::ExtendArg_A)
-        );
+        Assert(instrArg->m_opcode == Js::OpCode::ArgOut_A || instrArg->m_opcode == Js::OpCode::ExtendArg_A &&
+        (
+            helperMethod == IR::JnHelperMethod::HelperOP_InitCachedScope ||
+            helperMethod == IR::JnHelperMethod::HelperScrFunc_OP_NewScFuncHomeObj ||
+            helperMethod == IR::JnHelperMethod::HelperScrFunc_OP_NewScGenFuncHomeObj ||
+            helperMethod == IR::JnHelperMethod::HelperRestify ||
+            helperMethod == IR::JnHelperMethod::HelperStPropIdArrFromVar
+        ));
         prevInstr = LoadHelperArgument(prevInstr, instrArg->GetSrc1());
 
         argOpnd = instrArg->GetSrc2();
@@ -1284,7 +1293,7 @@ void LowererMD::ChangeToIMul(IR::Instr *const instr, bool hasOverflowCheck)
         EmitInt4Instr(instr); // IMUL2
 }
 
-const uint16
+uint16
 LowererMD::GetFormalParamOffset()
 {
     //In x86\x64 formal params were offset from EBP by the EBP chain, return address, and the 2 non-user params
@@ -2644,9 +2653,7 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
     bool isFloatSrc = src1->IsFloat();
     bool isInt64Src = src1->IsInt64();
     Assert(!isFloatSrc || src2->IsFloat());
-    Assert(!isFloatSrc || isIntDst);
     Assert(!isInt64Src || src2->IsInt64());
-    Assert(!isInt64Src || isIntDst);
     Assert(!isFloatSrc || AutoSystemInfo::Data.SSE2Available());
     IR::Opnd *opnd;
     IR::Instr *newInstr;
@@ -2675,8 +2682,11 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
         done = instr;
     }
 
+    bool isNegOpt = instr->m_opcode == Js::OpCode::CmNeq_A || instr->m_opcode == Js::OpCode::CmSrNeq_A;
+    bool initDstToFalse = true;
     if (isIntDst)
     {
+        // Fast path for int src with destination type specialized to int
         // reg = MOV 0 will get peeped to XOR reg, reg which sets the flags.
         // Put the MOV before the CMP, but use a tmp if dst == src1/src2
         if (dst->IsEqual(src1) || dst->IsEqual(src2))
@@ -2684,7 +2694,7 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
             tmp = IR::RegOpnd::New(dst->GetType(), this->m_func);
         }
         // dst = MOV 0
-        if (isFloatSrc && instr->m_opcode == Js::OpCode::CmNeq_A)
+        if (isFloatSrc && isNegOpt)
         {
             opnd = IR::IntConstOpnd::New(1, TyInt32, this->m_func);
         }
@@ -2693,6 +2703,22 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
             opnd = IR::IntConstOpnd::New(0, TyInt32, this->m_func);
         }
         m_lowerer->InsertMove(tmp, opnd, done);
+    }
+    else if (isFloatSrc)
+    {
+        // Fast path for float src when destination is a var
+        // Assign default value for destination in case either src is NaN
+        Assert(dst->IsVar());
+        if (isNegOpt)
+        {
+            opnd = this->m_lowerer->LoadLibraryValueOpnd(instr, LibraryValue::ValueTrue);
+        }
+        else
+        {
+            opnd = this->m_lowerer->LoadLibraryValueOpnd(instr, LibraryValue::ValueFalse);
+            initDstToFalse = false;
+        }
+        Lowerer::InsertMove(tmp, opnd, done);
     }
 
     Js::OpCode cmpOp;
@@ -2724,7 +2750,9 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
         done->InsertBefore(newInstr);
     }
 
-    if (!isIntDst)
+    // For all cases where the operator is a comparison, we do not want to emit False value
+    // since it has already been generated in the if block before.
+    if (!isIntDst && initDstToFalse)
     {
         opnd = this->m_lowerer->LoadLibraryValueOpnd(instr, LibraryValue::ValueFalse);
         Lowerer::InsertMove(tmp, opnd, done);
@@ -2735,11 +2763,13 @@ void LowererMD::GenerateFastCmXx(IR::Instr *instr)
     {
     case Js::OpCode::CmEq_I4:
     case Js::OpCode::CmEq_A:
+    case Js::OpCode::CmSrEq_A:
         useCC = isIntDst ? Js::OpCode::SETE : Js::OpCode::CMOVE;
         break;
 
     case Js::OpCode::CmNeq_I4:
     case Js::OpCode::CmNeq_A:
+    case Js::OpCode::CmSrNeq_A:
         useCC = isIntDst ? Js::OpCode::SETNE : Js::OpCode::CMOVNE;
         break;
 
@@ -3823,7 +3853,7 @@ LowererMD::GenerateFastLdMethodFromFlags(IR::Instr * instrLdFld)
 
     IR::PropertySymOpnd * propertySymOpnd = opndSrc->AsPropertySymOpnd();
 
-    Assert(!instrLdFld->DoStackArgsOpt(this->m_func));
+    Assert(!instrLdFld->DoStackArgsOpt());
 
     if (propertySymOpnd->IsTypeCheckSeqCandidate())
     {
@@ -7780,12 +7810,25 @@ void LowererMD::GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMeth
     switch (instr->m_opcode)
     {
     case Js::OpCode::InlineMathSqrt:
-        // Sqrt maps directly to the SSE2 instruction.
-        // src and dst should already be XMM registers, all we need is just change the opcode.
-        Assert(helperMethod == (IR::JnHelperMethod)0);
-        Assert(instr->GetSrc2() == nullptr);
-        instr->m_opcode = instr->GetSrc1()->IsFloat64() ? Js::OpCode::SQRTSD : Js::OpCode::SQRTSS;
-        break;
+        {
+            // Sqrt maps directly to the SSE2 instruction.
+            // src and dst should already be XMM registers, all we need is just change the opcode.
+            Assert(helperMethod == (IR::JnHelperMethod)0);
+            Assert(instr->GetSrc2() == nullptr);
+            instr->m_opcode = instr->GetSrc1()->IsFloat64() ? Js::OpCode::SQRTSD : Js::OpCode::SQRTSS;
+
+            IR::Opnd *src = instr->GetSrc1();
+            IR::Opnd *dst = instr->GetDst();
+            if (!src->IsEqual(dst))
+            {
+                Assert(src->IsRegOpnd() && dst->IsRegOpnd());
+                // Force source to be the same as destination to break false dependency on the register
+                Lowerer::InsertMove(dst, src, instr, false /* generateWriteBarrier */);
+                instr->ReplaceSrc1(dst);
+            }
+
+            break;
+        }
 
     case Js::OpCode::InlineMathAbs:
         Assert(helperMethod == (IR::JnHelperMethod)0);
@@ -8233,7 +8276,7 @@ void LowererMD::GenerateFastInlineBuiltInCall(IR::Instr* instr, IR::JnHelperMeth
 
             // CMP src1, src2
             if(dst->IsInt32())
-            {
+            {                
                 if(min)
                 {
                     // JLT $continueLabel
@@ -8698,7 +8741,6 @@ LowererMD::InsertCmovCC(const Js::OpCode opCode, IR::Opnd * dst, IR::Opnd* src1,
 
     return instr;
 }
-
 IR::BranchInstr*
 LowererMD::InsertMissingItemCompareBranch(IR::Opnd* compareSrc, IR::Opnd* missingItemOpnd, Js::OpCode opcode, IR::LabelInstr* target, IR::Instr* insertBeforeInstr)
 {

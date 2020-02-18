@@ -71,10 +71,10 @@
     MACRO_WMS_WITH_DBG_ATTR(opcode, layout, attr, OpDbgAttr_LoadRoot)
 
 #define MACRO_EXTENDED_ROOT(opcode, layout, attr) \
-    MACRO_EXTENDED_WITH_DBG_ATTR(opcode, layout, attr, OpDbgAttr_LoadRoot)
+    MACRO_EXTEND_WITH_DBG_ATTR(opcode, layout, attr, OpDbgAttr_LoadRoot)
 
 #define MACRO_EXTEND_WMS_ROOT(opcode, layout, attr) \
-    MACRO_EXTENDED_WMS_WITH_DBG_ATTR(opcode, layout, attr, OpDbgAttr_LoadRoot)
+    MACRO_EXTEND_WMS_WITH_DBG_ATTR(opcode, layout, attr, OpDbgAttr_LoadRoot)
 
 #define MACRO_WMS_PROFILED( opcode, layout, attr) \
     MACRO_WMS(opcode, layout, OpHasProfiled|attr) \
@@ -320,8 +320,6 @@ MACRO_BACKEND_ONLY(     CmUnGe_I4,          Reg3,           OpTempNumberSources|
 MACRO_WMS(              Conv_Num,           Reg2,           OpSideEffect|OpTempNumberProducing|OpTempNumberTransfer|OpTempObjectSources|OpOpndHasImplicitCall|OpProducesNumber) // Convert to Number. [[ToNumber()]]
 // Operation ToString(str)
 MACRO_EXTEND_WMS(       Conv_Str,           Reg2,           OpOpndHasImplicitCall|OpTempNumberSources|OpTempObjectSources|OpCanCSE|OpPostOpDbgBailOut)
-// Operation ToPropertyKey(var)
-MACRO_EXTEND_WMS(       Conv_Prop,          Reg2,           OpOpndHasImplicitCall|OpTempNumberSources|OpTempObjectSources|OpCanCSE|OpPostOpDbgBailOut)
 
 // Conv_Obj:
 //      OpSideEffect - May throw exception on null/undefined.
@@ -356,6 +354,7 @@ MACRO_WMS(              ChkUndecl,                  Reg1,           OpSideEffect
 
 MACRO_WMS_ROOT(         EnsureNoRootFld,            ElementRootU,   OpSideEffect)
 MACRO_WMS_ROOT(         EnsureNoRootRedeclFld,      ElementRootU,   OpSideEffect)
+MACRO_EXTEND_WMS_ROOT(  EnsureCanDeclGloFunc,       ElementRootU,   OpSideEffect)
 MACRO_WMS(              ScopedEnsureNoRedeclFld,    ElementScopedC, OpSideEffect)
 
 MACRO_WMS(              InitUndecl,                 Reg1,           OpCanCSE)
@@ -466,21 +465,21 @@ MACRO_WMS(              StEnvSlot,                  ElementSlotI2,  None)
 MACRO_WMS(              StInnerSlot,                ElementSlotI2,  None)
 MACRO_WMS(              StLocalSlot,                ElementSlotI1,  None)
 MACRO_EXTEND_WMS(       StParamSlot,                ElementSlotI1,  None)
-MACRO_BACKEND_ONLY(     StSlotChkUndecl,            ElementSlot,    OpSideEffect|OpNonIntTransfer) // Src1 is transferred to Dst, Src2 holds the same value as Dst to communicate Dst's liveness.
-MACRO_EXTEND_WMS(       StEnvSlotChkUndecl,         ElementSlotI2,  OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StInnerSlotChkUndecl,       ElementSlotI2,  OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StLocalSlotChkUndecl,       ElementSlotI1,  OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StParamSlotChkUndecl,       ElementSlotI1,  OpSideEffect|OpNonIntTransfer)
+MACRO_BACKEND_ONLY(     StSlotChkUndecl,            ElementSlot,    OpSideEffect)
+MACRO_EXTEND_WMS(       StEnvSlotChkUndecl,         ElementSlotI2,  OpSideEffect)
+MACRO_EXTEND_WMS(       StInnerSlotChkUndecl,       ElementSlotI2,  OpSideEffect)
+MACRO_EXTEND_WMS(       StLocalSlotChkUndecl,       ElementSlotI1,  OpSideEffect)
+MACRO_EXTEND_WMS(       StParamSlotChkUndecl,       ElementSlotI1,  OpSideEffect)
 MACRO_EXTEND_WMS(       StObjSlot,                  ElementSlot,    OpSideEffect)
 MACRO_EXTEND_WMS(       StInnerObjSlot,             ElementSlotI2,  OpSideEffect)
 MACRO_EXTEND_WMS(       StLocalObjSlot,             ElementSlotI1,  OpSideEffect)
 MACRO_EXTEND_WMS(       StParamObjSlot,             ElementSlotI1,  OpSideEffect)
-MACRO_EXTEND_WMS(       StLocalObjSlotChkUndecl,    ElementSlotI1,  OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StParamObjSlotChkUndecl,    ElementSlotI1,  OpSideEffect|OpNonIntTransfer)
+MACRO_EXTEND_WMS(       StLocalObjSlotChkUndecl,    ElementSlotI1,  OpSideEffect)
+MACRO_EXTEND_WMS(       StParamObjSlotChkUndecl,    ElementSlotI1,  OpSideEffect)
 MACRO_EXTEND_WMS(       StEnvObjSlot,               ElementSlotI2,  OpSideEffect)
-MACRO_EXTEND_WMS(       StObjSlotChkUndecl,         ElementSlot,    OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StInnerObjSlotChkUndecl,    ElementSlotI2,  OpSideEffect|OpNonIntTransfer)
-MACRO_EXTEND_WMS(       StEnvObjSlotChkUndecl,      ElementSlotI2,  OpSideEffect|OpNonIntTransfer)
+MACRO_EXTEND_WMS(       StObjSlotChkUndecl,         ElementSlot,    OpSideEffect)
+MACRO_EXTEND_WMS(       StInnerObjSlotChkUndecl,    ElementSlotI2,  OpSideEffect)
+MACRO_EXTEND_WMS(       StEnvObjSlotChkUndecl,      ElementSlotI2,  OpSideEffect)
 MACRO_EXTEND_WMS(       StModuleSlot,               ElementSlotI2,  OpSideEffect)
 MACRO_BACKEND_ONLY(     LdAsmJsFunc,                ElementSlot,    OpTempNumberSources|OpCanCSE)
 MACRO_BACKEND_ONLY(     LdWasmFunc,                 ElementSlot,    OpSideEffect)
@@ -579,8 +578,8 @@ MACRO_EXTEND_WMS_AND_PROFILED(NewScObjectSpread,   CallIExtended, OpSideEffect|O
 MACRO_WMS_PROFILED2(    NewScObjArray,      CallI,          OpSideEffect|OpUseAllFields|OpCallInstr)        // Create new ScriptObject instance
 MACRO_WMS_PROFILED2(    NewScObjArraySpread, CallIExtended, OpSideEffect|OpUseAllFields|OpCallInstr)        // Create new ScriptObject instance
 MACRO(                  NewScObject_A,      Auxiliary,      OpSideEffect|OpUseAllFields)                    // Create new ScriptObject instance passing only constants
-MACRO_WMS(              NewScObjectNoCtorFull, Reg2,        OpTempObjectCanStoreTemp|OpHasImplicitCall)     // Create new object that will be used for the 'this' binding in a base class constructor
-MACRO_BACKEND_ONLY(     NewScObjectNoCtor,  Empty,          OpTempObjectCanStoreTemp|OpHasImplicitCall)     // Create new object that will be passed into a constructor
+MACRO_WMS(              NewScObjectNoCtorFull, Reg2,        OpTempObjectCanStoreTemp)                       // Create new object that will be used for the 'this' binding in a base class constructor
+MACRO_BACKEND_ONLY(     NewScObjectNoCtor,  Empty,          OpTempObjectCanStoreTemp)                       // Create new object that will be passed into a constructor
 MACRO_BACKEND_ONLY(     GetNewScObject,     Empty,          OpTempObjectTransfer)                           // Determine which object to finally use as the result of NewScObject (object passed into constructor as 'this', or object returned by constructor)
 MACRO_BACKEND_ONLY(     UpdateNewScObjectCache, Empty,      None)                                           // Update the cache used for NewScObject
 MACRO_WMS(              NewScObjectSimple,  Reg1,           OpTempObjectCanStoreTemp)
@@ -767,6 +766,7 @@ MACRO_BACKEND_ONLY(     InlineArrayPop,      Empty,          OpSideEffect|OpInli
 MACRO_BACKEND_ONLY(     InlineArrayPush,     Empty,          OpSideEffect|OpInlinableBuiltIn|OpHasImplicitCall)
 MACRO_BACKEND_ONLY(     InlineFunctionApply, Empty,          OpSideEffect|OpInlinableBuiltIn)
 MACRO_BACKEND_ONLY(     InlineFunctionCall,  Empty,          OpSideEffect|OpInlinableBuiltIn)
+MACRO_BACKEND_ONLY(     InlineCallInstanceFunction,  Empty,  OpSideEffect|OpInlinableBuiltIn)
 MACRO_BACKEND_ONLY(     InlineRegExpExec,    Empty,          OpSideEffect|OpInlinableBuiltIn)
 
 MACRO_BACKEND_ONLY(     CallIFixed,          Empty,          OpSideEffect|OpUseAllFields|OpCallInstr|OpInlineCallInstr)
@@ -774,6 +774,7 @@ MACRO_BACKEND_ONLY(     CheckFixedFld,       Empty,          OpFastFldInstr|OpTe
 MACRO_BACKEND_ONLY(     CheckPropertyGuardAndLoadType,  Empty,          OpFastFldInstr|OpTempObjectSources|OpDoNotTransfer)
 MACRO_BACKEND_ONLY(     CheckObjType,        Empty,          OpFastFldInstr|OpTempObjectSources|OpCanCSE)
 MACRO_BACKEND_ONLY(     AdjustObjType,       Empty,          OpSideEffect)
+MACRO_BACKEND_ONLY(     AdjustObjTypeReloadAuxSlotPtr,       Empty,          OpSideEffect)
 
                                                                                                             // Edge inline built-ins
 #ifdef ENABLE_DOM_FAST_PATH
@@ -828,6 +829,16 @@ MACRO_BACKEND_ONLY(     ThrowRuntimeError,  Empty,          OpSideEffect)
 MACRO_BACKEND_ONLY(     TrapIfMinIntOverNegOne, Reg3,       OpSideEffect)
 MACRO_BACKEND_ONLY(     TrapIfZero,         Reg3,           OpSideEffect)
 MACRO_BACKEND_ONLY(     TrapIfUnalignedAccess, Reg3,        OpSideEffect)
+
+MACRO_EXTEND_WMS(       SpreadObjectLiteral,Reg2,           OpSideEffect|OpHasImplicitCall)
+MACRO_EXTEND_WMS(       StPropIdArrFromVar, ElementSlot,    OpSideEffect|OpHasImplicitCall)
+MACRO_EXTEND_WMS(       Restify,            Reg4,           OpSideEffect|OpHasImplicitCall)
+MACRO_EXTEND_WMS(       NewPropIdArrForCompProps, Reg1Unsigned1, OpSideEffect)
+
+MACRO_BACKEND_ONLY(BigIntLiteral, Empty, None) // Load BigInt literal
+MACRO_EXTEND_WMS(Conv_Numeric, Reg2, OpSideEffect | OpTempNumberProducing | OpTempNumberTransfer | OpTempObjectSources | OpOpndHasImplicitCall | OpProducesNumber) // Convert to Numeric. [[ToNumeric()]]
+MACRO_EXTEND_WMS(Incr_Num_A, Reg2, OpTempNumberProducing | OpOpndHasImplicitCall | OpDoNotTransfer | OpTempNumberSources | OpTempObjectSources | OpCanCSE | OpPostOpDbgBailOut | OpProducesNumber)     // Increment Numeric
+MACRO_EXTEND_WMS(Decr_Num_A, Reg2, OpTempNumberProducing | OpOpndHasImplicitCall | OpDoNotTransfer | OpTempNumberSources | OpTempObjectSources | OpCanCSE | OpPostOpDbgBailOut | OpProducesNumber)     // Increment Numeric
 
 // All SIMD ops are backend only for non-asmjs.
 #define MACRO_SIMD(opcode, asmjsLayout, opCodeAttrAsmJs, OpCodeAttr, ...) MACRO_BACKEND_ONLY(opcode, Empty, OpCodeAttr)

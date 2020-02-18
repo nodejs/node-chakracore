@@ -36,9 +36,6 @@ private:
     bool ProcessDef(IR::Opnd * opnd);
     void ProcessTransfers(IR::Instr * instr);
     void ProcessFieldKills(IR::Instr * instr);
-    bool SymIsIntconstOrSelf(Sym *sym, IR::Opnd *opnd);
-    bool InstrPreservesNumberValues(IR::Instr *instr, Sym *defSym);
-
     template<typename T> void ClearBucketsOnFieldKill(IR::Instr *instr, HashTable<T> *table);
     StackSym* ProcessByteCodeUsesDst(IR::ByteCodeUsesInstr * byteCodeUsesInstr);
     const BVSparse<JitArenaAllocator>* ProcessByteCodeUsesSrcs(IR::ByteCodeUsesInstr * byteCodeUsesInstr);
@@ -141,11 +138,11 @@ private:
     void TrackObjTypeSpecProperties(IR::PropertySymOpnd *opnd, BasicBlock *block);
     void TrackObjTypeSpecWriteGuards(IR::PropertySymOpnd *opnd, BasicBlock *block);
     void TrackAddPropertyTypes(IR::PropertySymOpnd *opnd, BasicBlock *block);
-    void InsertTypeTransition(IR::Instr *instrInsertBefore, int symId, AddPropertyCacheBucket *data);
-    void InsertTypeTransition(IR::Instr *instrInsertBefore, StackSym *objSym, AddPropertyCacheBucket *data);
-    void InsertTypeTransitionAtBlock(BasicBlock *block, int symId, AddPropertyCacheBucket *data);
-    void InsertTypeTransitionsAtPriorSuccessors(BasicBlock *block, BasicBlock *blockSucc, int symId, AddPropertyCacheBucket *data);
-    void InsertTypeTransitionAfterInstr(IR::Instr *instr, int symId, AddPropertyCacheBucket *data);
+    void InsertTypeTransition(IR::Instr *instrInsertBefore, int symId, AddPropertyCacheBucket *data, BVSparse<JitArenaAllocator>* upwardExposedUses);
+    void InsertTypeTransition(IR::Instr *instrInsertBefore, StackSym *objSym, AddPropertyCacheBucket *data, BVSparse<JitArenaAllocator>* upwardExposedUses);
+    void InsertTypeTransitionAtBlock(BasicBlock *block, int symId, AddPropertyCacheBucket *data, BVSparse<JitArenaAllocator>* upwardExposedUses);
+    void InsertTypeTransitionsAtPriorSuccessors(BasicBlock *block, BasicBlock *blockSucc, int symId, AddPropertyCacheBucket *data, BVSparse<JitArenaAllocator>* upwardExposedUses);
+    void InsertTypeTransitionAfterInstr(IR::Instr *instr, int symId, AddPropertyCacheBucket *data, BVSparse<JitArenaAllocator>* upwardExposedUses);
     void InsertTypeTransitionsAtPotentialKills();
     bool TransitionUndoesObjectHeaderInlining(AddPropertyCacheBucket *data) const;
 
@@ -191,7 +188,7 @@ private:
     BVSparse<JitArenaAllocator> * intOverflowDoesNotMatterInRangeBySymId;
     BVSparse<JitArenaAllocator> * candidateSymsRequiredToBeInt;
     BVSparse<JitArenaAllocator> * candidateSymsRequiredToBeLossyInt;
-    BVSparse<JitArenaAllocator> * considerSymsAsRealUsesInNoImplicitCallUses;
+    StackSym * considerSymAsRealUseInNoImplicitCallUses;
     bool intOverflowCurrentlyMattersInRange;
     bool isCollectionPass;
     enum class CollectionPassSubPhase

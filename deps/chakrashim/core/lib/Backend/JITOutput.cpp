@@ -66,12 +66,6 @@ JITOutput::IsTrackCompoundedIntOverflowDisabled() const
 }
 
 bool
-JITOutput::IsMemOpDisabled() const
-{
-    return m_outputData->disableMemOp != FALSE;
-}
-
-bool
 JITOutput::IsArrayCheckHoistDisabled() const
 {
     return m_outputData->disableArrayCheckHoist != FALSE;

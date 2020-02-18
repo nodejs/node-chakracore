@@ -28,16 +28,17 @@ using namespace Js;
     //If Object has a [[Call]] internal method, then return true, otherwise return false
     bool JavascriptConversion::IsCallable(Var aValue)
     {
-        if (!RecyclableObject::Is(aValue))
+        if (!VarIs<RecyclableObject>(aValue))
         {
             return false;
         }
-        return IsCallable(RecyclableObject::UnsafeFromVar(aValue));
+        return IsCallable(UnsafeVarTo<RecyclableObject>(aValue));
     }
 
     bool JavascriptConversion::IsCallable(_In_ RecyclableObject* aValue)
     {
-        JavascriptMethod entryPoint = RecyclableObject::UnsafeFromVar(aValue)->GetEntryPoint();
+        Assert(VarIsCorrectType(aValue));
+        JavascriptMethod entryPoint = aValue->GetEntryPoint();
         return RecyclableObject::DefaultEntryPoint != entryPoint;
     }
 
@@ -88,13 +89,13 @@ using namespace Js;
             case TypeIds_Int64Number:
                 {
                 int leftValue = TaggedInt::ToInt32(aLeft);
-                __int64 rightValue = JavascriptInt64Number::UnsafeFromVar(aRight)->GetValue();
+                __int64 rightValue = UnsafeVarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return leftValue == rightValue;
                 }
             case TypeIds_UInt64Number:
                 {
                 int leftValue = TaggedInt::ToInt32(aLeft);
-                unsigned __int64 rightValue = JavascriptInt64Number::FromVar(aRight)->GetValue();
+                unsigned __int64 rightValue = VarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return leftValue == rightValue;
                 }
             }
@@ -104,24 +105,24 @@ using namespace Js;
             {
             case TypeIds_Integer:
                 {
-                __int64 leftValue = JavascriptInt64Number::UnsafeFromVar(aLeft)->GetValue();
+                __int64 leftValue = UnsafeVarTo<JavascriptInt64Number>(aLeft)->GetValue();
                 int rightValue = TaggedInt::ToInt32(aRight);
                 return leftValue == rightValue;
                 }
             case TypeIds_Number:
-                dblLeft     = (double)JavascriptInt64Number::UnsafeFromVar(aLeft)->GetValue();
+                dblLeft     = (double)UnsafeVarTo<JavascriptInt64Number>(aLeft)->GetValue();
                 dblRight    = JavascriptNumber::GetValue(aRight);
                 goto CommonNumber;
             case TypeIds_Int64Number:
                 {
-                __int64 leftValue = JavascriptInt64Number::UnsafeFromVar(aLeft)->GetValue();
-                __int64 rightValue = JavascriptInt64Number::UnsafeFromVar(aRight)->GetValue();
+                __int64 leftValue = UnsafeVarTo<JavascriptInt64Number>(aLeft)->GetValue();
+                __int64 rightValue = UnsafeVarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return leftValue == rightValue;
                 }
             case TypeIds_UInt64Number:
                 {
-                __int64 leftValue = JavascriptInt64Number::UnsafeFromVar(aLeft)->GetValue();
-                unsigned __int64 rightValue = JavascriptInt64Number::FromVar(aRight)->GetValue();
+                __int64 leftValue = UnsafeVarTo<JavascriptInt64Number>(aLeft)->GetValue();
+                unsigned __int64 rightValue = VarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return ((unsigned __int64)leftValue == rightValue);
                 }
             }
@@ -131,24 +132,24 @@ using namespace Js;
             {
             case TypeIds_Integer:
                 {
-                unsigned __int64 leftValue = JavascriptUInt64Number::UnsafeFromVar(aLeft)->GetValue();
+                unsigned __int64 leftValue = UnsafeVarTo<JavascriptUInt64Number>(aLeft)->GetValue();
                 __int64 rightValue = TaggedInt::ToInt32(aRight);
                 return (leftValue == (unsigned __int64)rightValue);
                 }
             case TypeIds_Number:
-                dblLeft     = (double)JavascriptUInt64Number::UnsafeFromVar(aLeft)->GetValue();
+                dblLeft     = (double)UnsafeVarTo<JavascriptUInt64Number>(aLeft)->GetValue();
                 dblRight    = JavascriptNumber::GetValue(aRight);
                 goto CommonNumber;
             case TypeIds_Int64Number:
                 {
-                unsigned __int64 leftValue = JavascriptUInt64Number::UnsafeFromVar(aLeft)->GetValue();
-                __int64 rightValue = JavascriptInt64Number::UnsafeFromVar(aRight)->GetValue();
+                unsigned __int64 leftValue = UnsafeVarTo<JavascriptUInt64Number>(aLeft)->GetValue();
+                __int64 rightValue = UnsafeVarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return (leftValue == (unsigned __int64)rightValue);
                 }
             case TypeIds_UInt64Number:
                 {
-                unsigned __int64 leftValue = JavascriptUInt64Number::UnsafeFromVar(aLeft)->GetValue();
-                unsigned __int64 rightValue = JavascriptInt64Number::FromVar(aRight)->GetValue();
+                unsigned __int64 leftValue = UnsafeVarTo<JavascriptUInt64Number>(aLeft)->GetValue();
+                unsigned __int64 rightValue = VarTo<JavascriptInt64Number>(aRight)->GetValue();
                 return leftValue == rightValue;
                 }
             }
@@ -162,11 +163,11 @@ using namespace Js;
                 goto CommonNumber;
             case TypeIds_Int64Number:
                 dblLeft     = JavascriptNumber::GetValue(aLeft);
-                dblRight    = (double)JavascriptInt64Number::UnsafeFromVar(aRight)->GetValue();
+                dblRight    = (double)UnsafeVarTo<JavascriptInt64Number>(aRight)->GetValue();
                 goto CommonNumber;
             case TypeIds_UInt64Number:
                 dblLeft     = JavascriptNumber::GetValue(aLeft);
-                dblRight    = (double)JavascriptUInt64Number::UnsafeFromVar(aRight)->GetValue();
+                dblRight    = (double)UnsafeVarTo<JavascriptUInt64Number>(aRight)->GetValue();
                 goto CommonNumber;
             case TypeIds_Number:
                 dblLeft     = JavascriptNumber::GetValue(aLeft);
@@ -196,15 +197,15 @@ CommonNumber:
             switch (rightType)
             {
             case TypeIds_String:
-                return JavascriptString::Equals(JavascriptString::UnsafeFromVar(aLeft), JavascriptString::UnsafeFromVar(aRight));
+                return JavascriptString::Equals(UnsafeVarTo<JavascriptString>(aLeft), UnsafeVarTo<JavascriptString>(aRight));
             }
             break;
 #if DBG
         case TypeIds_Symbol:
             if (rightType == TypeIds_Symbol)
             {
-                JavascriptSymbol* leftSymbol = JavascriptSymbol::UnsafeFromVar(aLeft);
-                JavascriptSymbol* rightSymbol = JavascriptSymbol::UnsafeFromVar(aRight);
+                JavascriptSymbol* leftSymbol = UnsafeVarTo<JavascriptSymbol>(aLeft);
+                JavascriptSymbol* rightSymbol = UnsafeVarTo<JavascriptSymbol>(aRight);
                 Assert(leftSymbol->GetValue() != rightSymbol->GetValue());
             }
 #endif
@@ -258,7 +259,7 @@ CommonNumber:
                 return TRUE;
 
             default:
-                *object = RecyclableObject::FromVar(aValue)->ToObject(scriptContext);
+                *object = VarTo<RecyclableObject>(aValue)->ToObject(scriptContext);
                 return TRUE;
         }
     }
@@ -267,7 +268,7 @@ CommonNumber:
     // ToPropertyKey() takes a value and converts it to a property key
     // Implementation of ES6 7.1.14
     //----------------------------------------------------------------------------
-    Var JavascriptConversion::ToPropertyKey(
+    void JavascriptConversion::ToPropertyKey(
         Var argument,
         _In_ ScriptContext* scriptContext,
         _Out_ const PropertyRecord** propertyRecord,
@@ -275,29 +276,26 @@ CommonNumber:
     {
         Var key = JavascriptConversion::ToPrimitive<JavascriptHint::HintString>(argument, scriptContext);
         PropertyString * propertyString = nullptr;
-        if (JavascriptSymbol::Is(key))
+        if (VarIs<JavascriptSymbol>(key))
         {
             // If we are looking up a property keyed by a symbol, we already have the PropertyId in the symbol
-            *propertyRecord = JavascriptSymbol::UnsafeFromVar(key)->GetValue();
+            *propertyRecord = UnsafeVarTo<JavascriptSymbol>(key)->GetValue();
         }
         else
         {
             // For all other types, convert the key into a string and use that as the property name
             JavascriptString * propName = JavascriptConversion::ToString(key, scriptContext);
             propName->GetPropertyRecord(propertyRecord);
-            if (PropertyString::Is(propName))
+            if (VarIs<PropertyString>(propName))
             {
-                propertyString = PropertyString::UnsafeFromVar(propName);
+                propertyString = UnsafeVarTo<PropertyString>(propName);
             }
-            key = propName;
         }
 
         if (propString)
         {
             *propString = propertyString;
         }
-
-        return key;
     }
 
     //----------------------------------------------------------------------------
@@ -328,12 +326,13 @@ CommonNumber:
         case TypeIds_Number:
         case TypeIds_String:
         case TypeIds_Symbol:
+        case TypeIds_BigInt:
             return aValue;
 
         case TypeIds_VariantDate:
             {
                 Var result = nullptr;
-                if (JavascriptVariantDate::UnsafeFromVar(aValue)->ToPrimitive(hint, &result, requestContext) != TRUE)
+                if (UnsafeVarTo<JavascriptVariantDate>(aValue)->ToPrimitive(hint, &result, requestContext) != TRUE)
                 {
                     result = nullptr;
                 }
@@ -342,7 +341,7 @@ CommonNumber:
 
         case TypeIds_StringObject:
             {
-                JavascriptStringObject * stringObject = JavascriptStringObject::UnsafeFromVar(aValue);
+                JavascriptStringObject * stringObject = UnsafeVarTo<JavascriptStringObject>(aValue);
                 ScriptContext * objectScriptContext = stringObject->GetScriptContext();
                 if (objectScriptContext->optimizationOverrides.GetSideEffects() & (hint == JavascriptHint::HintString ? SideEffects_ToString : SideEffects_ValueOf))
                 {
@@ -354,7 +353,7 @@ CommonNumber:
 
         case TypeIds_NumberObject:
             {
-                JavascriptNumberObject * numberObject = JavascriptNumberObject::UnsafeFromVar(aValue);
+                JavascriptNumberObject * numberObject = UnsafeVarTo<JavascriptNumberObject>(aValue);
                 ScriptContext * objectScriptContext = numberObject->GetScriptContext();
                 if (hint == JavascriptHint::HintString)
                 {
@@ -378,7 +377,7 @@ CommonNumber:
 
         case TypeIds_SymbolObject:
             {
-                JavascriptSymbolObject* symbolObject = JavascriptSymbolObject::UnsafeFromVar(aValue);
+                JavascriptSymbolObject* symbolObject = UnsafeVarTo<JavascriptSymbolObject>(aValue);
 
                 return CrossSite::MarshalVar(requestContext, symbolObject->Unwrap(), symbolObject->GetScriptContext());
             }
@@ -386,7 +385,7 @@ CommonNumber:
         case TypeIds_Date:
         case TypeIds_WinRTDate:
             {
-                JavascriptDate* dateObject = JavascriptDate::UnsafeFromVar(aValue);
+                JavascriptDate* dateObject = UnsafeVarTo<JavascriptDate>(aValue);
                 if(hint == JavascriptHint::HintNumber)
                 {
                     if (dateObject->GetScriptContext()->optimizationOverrides.GetSideEffects() & SideEffects_ValueOf)
@@ -411,14 +410,14 @@ CommonNumber:
 
         // convert to JavascriptNumber
         case TypeIds_Int64Number:
-            return JavascriptInt64Number::UnsafeFromVar(aValue)->ToJavascriptNumber();
+            return UnsafeVarTo<JavascriptInt64Number>(aValue)->ToJavascriptNumber();
         case TypeIds_UInt64Number:
-            return JavascriptUInt64Number::UnsafeFromVar(aValue)->ToJavascriptNumber();
+            return UnsafeVarTo<JavascriptUInt64Number>(aValue)->ToJavascriptNumber();
 
         default:
             // if no Method exists this function falls back to OrdinaryToPrimitive
             // if IsES6ToPrimitiveEnabled flag is off we also fall back to OrdinaryToPrimitive
-            return MethodCallToPrimitive<hint>(RecyclableObject::UnsafeFromVar(aValue), requestContext);
+            return MethodCallToPrimitive<hint>(UnsafeVarTo<RecyclableObject>(aValue), requestContext);
         }
     }
 
@@ -472,7 +471,7 @@ CommonNumber:
         {
             return OrdinaryToPrimitive<hint>(value, requestContext);
         }
-        if (!JavascriptFunction::Is(varMethod))
+        if (!VarIs<JavascriptFunction>(varMethod))
         {
             // Don't error if we disabled implicit calls
             JavascriptError::TryThrowTypeError(scriptContext, requestContext, JSERR_Property_NeedFunction, requestContext->GetPropertyName(PropertyIds::_symbolToPrimitive)->GetBuffer());
@@ -480,7 +479,7 @@ CommonNumber:
         }
 
         // Let exoticToPrim be GetMethod(input, @@toPrimitive).
-        JavascriptFunction* exoticToPrim = JavascriptFunction::UnsafeFromVar(varMethod);
+        JavascriptFunction* exoticToPrim = UnsafeVarTo<JavascriptFunction>(varMethod);
         JavascriptString* hintString = nullptr;
 
         if (hint == JavascriptHint::HintString)
@@ -612,14 +611,14 @@ CommonNumber:
                 return scriptContext->GetIntegerString(aValue);
 
             case TypeIds_Boolean:
-                return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? scriptContext->GetLibrary()->GetTrueDisplayString() : scriptContext->GetLibrary()->GetFalseDisplayString();
+                return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? scriptContext->GetLibrary()->GetTrueDisplayString() : scriptContext->GetLibrary()->GetFalseDisplayString();
 
             case TypeIds_Number:
                 return JavascriptNumber::ToStringRadix10(JavascriptNumber::GetValue(aValue), scriptContext);
 
             case TypeIds_Int64Number:
                 {
-                    __int64 value = JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue();
+                    __int64 value = UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue();
                     if (!TaggedInt::IsOverflow(value))
                     {
                         return scriptContext->GetIntegerString((int)value);
@@ -632,7 +631,7 @@ CommonNumber:
 
             case TypeIds_UInt64Number:
                 {
-                    unsigned __int64 value = JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue();
+                    unsigned __int64 value = UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue();
                     if (!TaggedInt::IsOverflow(value))
                     {
                         return scriptContext->GetIntegerString((uint)value);
@@ -645,18 +644,18 @@ CommonNumber:
 
             case TypeIds_String:
                 {
-                    ScriptContext* aValueScriptContext = Js::RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext();
-                    return JavascriptString::UnsafeFromVar(CrossSite::MarshalVar(scriptContext,
+                    ScriptContext* aValueScriptContext = Js::UnsafeVarTo<Js::RecyclableObject>(aValue)->GetScriptContext();
+                    return UnsafeVarTo<JavascriptString>(CrossSite::MarshalVar(scriptContext,
                       aValue, aValueScriptContext));
                 }
             case TypeIds_VariantDate:
-                return JavascriptVariantDate::FromVar(aValue)->GetValueString(scriptContext);
+                return VarTo<JavascriptVariantDate>(aValue)->GetValueString(scriptContext);
 
             case TypeIds_Symbol:
-                return JavascriptSymbol::UnsafeFromVar(aValue)->ToString(scriptContext);
+                return UnsafeVarTo<JavascriptSymbol>(aValue)->ToString(scriptContext);
 
             case TypeIds_SymbolObject:
-                return JavascriptSymbol::ToString(JavascriptSymbolObject::UnsafeFromVar(aValue)->GetValue(), scriptContext);
+                return JavascriptSymbol::ToString(UnsafeVarTo<JavascriptSymbolObject>(aValue)->GetValue(), scriptContext);
 
             case TypeIds_GlobalObject:
                 aValue = static_cast<Js::GlobalObject*>(aValue)->ToThis();
@@ -692,42 +691,39 @@ CommonNumber:
             return JavascriptNumber::ToLocaleString(TaggedInt::ToInt32(aValue), scriptContext);
 
         case TypeIds_Boolean:
-            return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? scriptContext->GetLibrary()->GetTrueDisplayString() : scriptContext->GetLibrary()->GetFalseDisplayString();
+            return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? scriptContext->GetLibrary()->GetTrueDisplayString() : scriptContext->GetLibrary()->GetFalseDisplayString();
 
         case TypeIds_Int64Number:
-            return JavascriptNumber::ToLocaleString((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue(), scriptContext);
+            return JavascriptNumber::ToLocaleString((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue(), scriptContext);
 
         case TypeIds_UInt64Number:
-            return JavascriptNumber::ToLocaleString((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue(), scriptContext);
+            return JavascriptNumber::ToLocaleString((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue(), scriptContext);
 
         case TypeIds_Number:
             return JavascriptNumber::ToLocaleString(JavascriptNumber::GetValue(aValue), scriptContext);
-
-        case TypeIds_String:
-            return JavascriptString::UnsafeFromVar(aValue);
 
         case TypeIds_VariantDate:
             // Legacy behavior was to create an empty object and call toLocaleString on it, which would result in this value
             return scriptContext->GetLibrary()->GetObjectDisplayString();
 
         case TypeIds_Symbol:
-            return JavascriptSymbol::UnsafeFromVar(aValue)->ToString(scriptContext);
+            return UnsafeVarTo<JavascriptSymbol>(aValue)->ToString(scriptContext);
 
         default:
             {
-                RecyclableObject* object = RecyclableObject::FromVar(aValue);
+                RecyclableObject* object = VarTo<RecyclableObject>(aValue);
                 Var value = JavascriptOperators::GetProperty(object, PropertyIds::toLocaleString, scriptContext, NULL);
 
                 if (JavascriptConversion::IsCallable(value))
                 {
-                    RecyclableObject* toLocaleStringFunction = RecyclableObject::FromVar(value);
+                    RecyclableObject* toLocaleStringFunction = VarTo<RecyclableObject>(value);
                     Var aResult = scriptContext->GetThreadContext()->ExecuteImplicitCall(toLocaleStringFunction, Js::ImplicitCall_ToPrimitive, [=]()->Js::Var
                     {
                         return CALL_FUNCTION(scriptContext->GetThreadContext(), toLocaleStringFunction, CallInfo(1), aValue);
                     });
-                    if (JavascriptString::Is(aResult))
+                    if (VarIs<JavascriptString>(aResult))
                     {
-                        return JavascriptString::UnsafeFromVar(aResult);
+                        return UnsafeVarTo<JavascriptString>(aResult);
                     }
                     else
                     {
@@ -759,9 +755,9 @@ CommonNumber:
     BOOL JavascriptConversion::ToBoolean_Full(Var aValue, ScriptContext* scriptContext)
     {
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
-        AssertMsg(RecyclableObject::Is(aValue), "Should be handled already");
+        AssertMsg(VarIs<RecyclableObject>(aValue), "Should be handled already");
 
-        auto type = RecyclableObject::UnsafeFromVar(aValue)->GetType();
+        auto type = UnsafeVarTo<RecyclableObject>(aValue)->GetType();
 
         switch (type->GetTypeId())
         {
@@ -774,7 +770,7 @@ CommonNumber:
             return true;
 
         case TypeIds_Boolean:
-            return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue();
+            return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue();
 
 #if !FLOATVAR
         case TypeIds_Number:
@@ -786,19 +782,19 @@ CommonNumber:
 
         case TypeIds_Int64Number:
             {
-                __int64 value = JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue();
+                __int64 value = UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue();
                 return value != 0;
             }
 
         case TypeIds_UInt64Number:
             {
-                unsigned __int64 value = JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue();
+                unsigned __int64 value = UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue();
                 return value != 0;
             }
 
         case TypeIds_String:
             {
-                JavascriptString * pstValue = JavascriptString::UnsafeFromVar(aValue);
+                JavascriptString * pstValue = UnsafeVarTo<JavascriptString>(aValue);
                 return pstValue->GetLength() > 0;
             }
 
@@ -834,7 +830,7 @@ CommonNumber:
         JIT_HELPER_REENTRANT_HEADER(Op_ConvNumber_FromPrimitive);
         Assert(Js::JavascriptStackWalker::ValidateTopJitFrame(scriptContext));
         Assert(!TaggedNumber::Is(aValue));
-        RecyclableObject *obj = RecyclableObject::FromVar(aValue);
+        RecyclableObject *obj = VarTo<RecyclableObject>(aValue);
 
         // NOTE: Don't allow strings, otherwise JIT's float type specialization has to worry about concats
         if (obj->GetTypeId() >= TypeIds_String)
@@ -866,7 +862,7 @@ CommonNumber:
     double JavascriptConversion::ToNumber_Full(Var aValue,ScriptContext* scriptContext)
     {
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         BOOL fPrimitiveOnly = false;
         while(true)
         {
@@ -886,22 +882,22 @@ CommonNumber:
                 return TaggedInt::ToDouble(aValue);
 
             case TypeIds_Boolean:
-                return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+                return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
             case TypeIds_Number:
                 return JavascriptNumber::GetValue(aValue);
 
             case TypeIds_Int64Number:
-                return (double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue();
+                return (double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue();
 
             case TypeIds_UInt64Number:
-                return (double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue();
+                return (double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue();
 
             case TypeIds_String:
-                return JavascriptString::UnsafeFromVar(aValue)->ToDouble();
+                return UnsafeVarTo<JavascriptString>(aValue)->ToDouble();
 
             case TypeIds_VariantDate:
-                return Js::DateImplementation::GetTvUtc(Js::DateImplementation::JsLocalTimeFromVarDate(JavascriptVariantDate::UnsafeFromVar(aValue)->GetValue()), scriptContext);
+                return Js::DateImplementation::GetTvUtc(Js::DateImplementation::JsLocalTimeFromVarDate(UnsafeVarTo<JavascriptVariantDate>(aValue)->GetValue()), scriptContext);
 
             default:
                 {
@@ -923,7 +919,7 @@ CommonNumber:
     double JavascriptConversion::ToInteger_Full(Var aValue,ScriptContext* scriptContext)
     {
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         BOOL fPrimitiveOnly = false;
         while(true)
         {
@@ -940,18 +936,18 @@ CommonNumber:
                 return TaggedInt::ToInt32(aValue);
 
             case TypeIds_Boolean:
-                return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+                return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
             case TypeIds_Number:
                 return ToInteger(JavascriptNumber::GetValue(aValue));
 
             case TypeIds_Int64Number:
-                return ToInteger((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return ToInteger((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue());
 
             case TypeIds_UInt64Number:
-                return ToInteger((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return ToInteger((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue());
             case TypeIds_String:
-                return ToInteger(JavascriptString::UnsafeFromVar(aValue)->ToDouble());
+                return ToInteger(UnsafeVarTo<JavascriptString>(aValue)->ToDouble());
 
             case TypeIds_VariantDate:
                 return ToInteger(ToNumber_Full(aValue, scriptContext));
@@ -994,7 +990,7 @@ CommonNumber:
         Assert(Js::JavascriptStackWalker::ValidateTopJitFrame(scriptContext));
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
 
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         // This is used when TaggedInt's overflow but remain under int32
         // so Number is our most critical case:
 
@@ -1018,22 +1014,22 @@ CommonNumber:
             return TaggedInt::ToInt32(aValue);
 
         case TypeIds_Boolean:
-            return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+            return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
         case TypeIds_Int64Number:
             // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
             // treat it as double anyhow.
-            return JavascriptMath::ToInt32Core((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue());
+            return JavascriptMath::ToInt32Core((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue());
 
         case TypeIds_UInt64Number:
             // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
             // treat it as double anyhow.
-            return JavascriptMath::ToInt32Core((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue());
+            return JavascriptMath::ToInt32Core((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue());
 
         case TypeIds_String:
         {
             double result;
-            if (JavascriptString::UnsafeFromVar(aValue)->ToDouble(&result))
+            if (UnsafeVarTo<JavascriptString>(aValue)->ToDouble(&result))
             {
                 return JavascriptMath::ToInt32Core(result);
             }
@@ -1062,7 +1058,7 @@ CommonNumber:
             return TaggedInt::ToInt32(aValue);
 
         case TypeIds_Boolean:
-            return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+            return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
         case TypeIds_Number:
             return ToInt32(JavascriptNumber::GetValue(aValue));
@@ -1070,17 +1066,17 @@ CommonNumber:
         case TypeIds_Int64Number:
             // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
             // treat it as double anyhow.
-            return JavascriptMath::ToInt32Core((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue());
+            return JavascriptMath::ToInt32Core((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue());
 
         case TypeIds_UInt64Number:
             // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
             // treat it as double anyhow.
-            return JavascriptMath::ToInt32Core((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue());
+            return JavascriptMath::ToInt32Core((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue());
 
         case TypeIds_String:
         {
             double result;
-            if (JavascriptString::UnsafeFromVar(aValue)->ToDouble(&result))
+            if (UnsafeVarTo<JavascriptString>(aValue)->ToDouble(&result))
             {
                 return ToInt32(result);
             }
@@ -1101,7 +1097,7 @@ CommonNumber:
     // a strict version of ToInt32 conversion that returns false for non int32 values like, inf, NaN, undef
     BOOL JavascriptConversion::ToInt32Finite(Var aValue, ScriptContext* scriptContext, int32* result)
     {
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         BOOL fPrimitiveOnly = false;
         while(true)
         {
@@ -1123,7 +1119,7 @@ CommonNumber:
                 return true;
 
             case TypeIds_Boolean:
-                *result = JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+                *result = UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
                 return true;
 
             case TypeIds_Number:
@@ -1132,15 +1128,15 @@ CommonNumber:
             case TypeIds_Int64Number:
                 // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return ToInt32Finite((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue(), result);
+                return ToInt32Finite((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue(), result);
 
             case TypeIds_UInt64Number:
                 // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return ToInt32Finite((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue(), result);
+                return ToInt32Finite((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue(), result);
 
             case TypeIds_String:
-                return ToInt32Finite(JavascriptString::UnsafeFromVar(aValue)->ToDouble(), result);
+                return ToInt32Finite(UnsafeVarTo<JavascriptString>(aValue)->ToDouble(), result);
 
             case TypeIds_VariantDate:
                 return ToInt32Finite(ToNumber_Full(aValue, scriptContext), result);
@@ -1175,12 +1171,12 @@ CommonNumber:
             }
         case TypeIds_Int64Number:
             {
-            JavascriptInt64Number* int64Number = JavascriptInt64Number::UnsafeFromVar(aValue);
+            JavascriptInt64Number* int64Number = UnsafeVarTo<JavascriptInt64Number>(aValue);
             return int64Number->GetValue();
             }
         case TypeIds_UInt64Number:
             {
-            JavascriptUInt64Number* uint64Number = JavascriptUInt64Number::UnsafeFromVar(aValue);
+            JavascriptUInt64Number* uint64Number = UnsafeVarTo<JavascriptUInt64Number>(aValue);
             return (__int64)uint64Number->GetValue();
             }
         case TypeIds_Number:
@@ -1200,12 +1196,12 @@ CommonNumber:
             }
         case TypeIds_Int64Number:
             {
-            JavascriptInt64Number* int64Number = JavascriptInt64Number::UnsafeFromVar(aValue);
+            JavascriptInt64Number* int64Number = UnsafeVarTo<JavascriptInt64Number>(aValue);
             return (unsigned __int64)int64Number->GetValue();
             }
         case TypeIds_UInt64Number:
             {
-            JavascriptUInt64Number* uint64Number = JavascriptUInt64Number::UnsafeFromVar(aValue);
+            JavascriptUInt64Number* uint64Number = UnsafeVarTo<JavascriptUInt64Number>(aValue);
             return uint64Number->GetValue();
             }
         case TypeIds_Number:
@@ -1236,7 +1232,7 @@ CommonNumber:
     {
         JIT_HELPER_REENTRANT_HEADER(Conv_ToUInt32_Full);
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         BOOL fPrimitiveOnly = false;
         while(true)
         {
@@ -1253,7 +1249,7 @@ CommonNumber:
                 return TaggedInt::ToUInt32(aValue);
 
             case TypeIds_Boolean:
-                return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+                return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
             case TypeIds_Number:
                 return JavascriptMath::ToUInt32(JavascriptNumber::GetValue(aValue));
@@ -1261,17 +1257,17 @@ CommonNumber:
             case TypeIds_Int64Number:
                 // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return JavascriptMath::ToUInt32((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return JavascriptMath::ToUInt32((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue());
 
             case TypeIds_UInt64Number:
                 // we won't lose precision if the int64 is within 32bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return JavascriptMath::ToUInt32((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return JavascriptMath::ToUInt32((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue());
 
             case TypeIds_String:
             {
                 double result;
-                if (JavascriptString::UnsafeFromVar(aValue)->ToDouble(&result))
+                if (UnsafeVarTo<JavascriptString>(aValue)->ToDouble(&result))
                 {
                     return JavascriptMath::ToUInt32(result);
                 }
@@ -1317,7 +1313,7 @@ CommonNumber:
     uint16 JavascriptConversion::ToUInt16_Full(IN  Var aValue, ScriptContext* scriptContext)
     {
         AssertMsg(!TaggedInt::Is(aValue), "Should be detected");
-        ScriptContext * objectScriptContext = RecyclableObject::Is(aValue) ? RecyclableObject::UnsafeFromVar(aValue)->GetScriptContext() : nullptr;
+        ScriptContext * objectScriptContext = VarIs<RecyclableObject>(aValue) ? UnsafeVarTo<RecyclableObject>(aValue)->GetScriptContext() : nullptr;
         BOOL fPrimitiveOnly = false;
         while(true)
         {
@@ -1334,7 +1330,7 @@ CommonNumber:
                 return TaggedInt::ToUInt16(aValue);
 
             case TypeIds_Boolean:
-                return JavascriptBoolean::UnsafeFromVar(aValue)->GetValue() ? 1 : +0;
+                return UnsafeVarTo<JavascriptBoolean>(aValue)->GetValue() ? 1 : +0;
 
             case TypeIds_Number:
                 return ToUInt16(JavascriptNumber::GetValue(aValue));
@@ -1342,17 +1338,17 @@ CommonNumber:
             case TypeIds_Int64Number:
                 // we won't lose precision if the int64 is within 16bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return ToUInt16((double)JavascriptInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return ToUInt16((double)UnsafeVarTo<JavascriptInt64Number>(aValue)->GetValue());
 
             case TypeIds_UInt64Number:
                 // we won't lose precision if the int64 is within 16bit boundary; otherwise we need to
                 // treat it as double anyhow.
-                return ToUInt16((double)JavascriptUInt64Number::UnsafeFromVar(aValue)->GetValue());
+                return ToUInt16((double)UnsafeVarTo<JavascriptUInt64Number>(aValue)->GetValue());
 
             case TypeIds_String:
             {
                 double result;
-                if (JavascriptString::UnsafeFromVar(aValue)->ToDouble(&result))
+                if (UnsafeVarTo<JavascriptString>(aValue)->ToDouble(&result))
                 {
                     return ToUInt16(result);
                 }
@@ -1466,3 +1462,15 @@ CommonNumber:
         return NumberUtilities::TryToInt64(length);
     }
 
+    JavascriptBigInt *JavascriptConversion::ToBigInt(Var aValue, ScriptContext* scriptContext)
+    {
+        Assert(scriptContext->GetThreadContext()->IsScriptActive());
+        switch (JavascriptOperators::GetTypeId(aValue))
+        {
+        case TypeIds_BigInt:
+            break;
+        default:
+            AssertOrFailFastMsg(false, "do not support conversion of other types in ToBigInt");
+        }
+        return UnsafeVarTo<JavascriptBigInt>(aValue);
+    }

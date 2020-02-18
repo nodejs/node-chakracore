@@ -12,10 +12,6 @@
 #include "Warnings.h"
 #include "ChakraCoreVersion.h"
 
-// CFG was never enabled for ARM32 and requires WIN10 SDK
-#if !defined(_M_ARM) && defined(_WIN32) && defined(NTDDI_WIN10)
-#define _CONTROL_FLOW_GUARD 1
-#endif
 
 //----------------------------------------------------------------------------------------------------
 // Default debug/fretest/release flags values
@@ -136,8 +132,9 @@
 // Language features
 #if !defined(CHAKRACORE_LITE) && (defined(_WIN32) || defined(INTL_ICU))
 #define ENABLE_INTL_OBJECT                          // Intl support
-#define ENABLE_JS_BUILTINS                          // Built In functions support
 #endif
+
+#define ENABLE_JS_BUILTINS                          // Built In functions support
 
 #if defined(_WIN32) && !defined(HAS_ICU)
 #define INTL_WINGLOB 1
@@ -320,9 +317,7 @@
 #endif
 
 // Other features
-#if defined(_CHAKRACOREBUILD)
-# define CHAKRA_CORE_DOWN_COMPAT 1
-#endif
+// #define CHAKRA_CORE_DOWN_COMPAT 1
 
 // todo:: Enable vectorcall on NTBUILD. OS#13609380
 #if defined(_WIN32) && !defined(NTBUILD) && defined(_M_IX86)
@@ -349,6 +344,7 @@
 #define ENABLE_FOUNDATION_OBJECT
 #define ENABLE_EXPERIMENTAL_FLAGS
 #define ENABLE_WININET_PROFILE_DATA_CACHE
+#define ENABLE_COMPRESSION_UTILITIES
 #define ENABLE_BASIC_TELEMETRY
 #define ENABLE_DOM_FAST_PATH
 #define EDIT_AND_CONTINUE

@@ -183,7 +183,7 @@ namespace Js
     }
 
     HRESULT DelayLoadWindowsGlobalization::DllGetActivationFactory(
-        __in HSTRING activatibleClassId,
+        __in HSTRING activatableClassId,
         __out IActivationFactory** factory)
     {
         if (m_hModule)
@@ -198,7 +198,7 @@ namespace Js
             }
 
             Assert(m_pfnFNCWDllGetActivationFactory != nullptr);
-            return m_pfnFNCWDllGetActivationFactory(activatibleClassId, factory);
+            return m_pfnFNCWDllGetActivationFactory(activatableClassId, factory);
         }
 
         return E_NOTIMPL;
@@ -206,7 +206,7 @@ namespace Js
 #endif
 
     HRESULT DelayLoadWinRtFoundation::RoGetActivationFactory(
-        __in HSTRING activatibleClassId,
+        __in HSTRING activatableClassId,
         __in REFIID iid,
         __out IActivationFactory** factory)
     {
@@ -222,7 +222,7 @@ namespace Js
             }
 
             Assert(m_pfnFNCWRoGetActivationFactory != nullptr);
-            return m_pfnFNCWRoGetActivationFactory(activatibleClassId, iid, factory);
+            return m_pfnFNCWRoGetActivationFactory(activatableClassId, iid, factory);
         }
 
         return E_NOTIMPL;
@@ -393,19 +393,132 @@ namespace Js
     }
 #endif
 
+#ifdef _CONTROL_FLOW_GUARD
+// Note. __declspec(guard(nocf)) causes the CFG check to be removed
+// inside this function, and is needed only for test binaries (chk and FRETEST)
+#if defined(DELAYLOAD_SET_CFG_TARGET)
+    DECLSPEC_GUARDNOCF
+#endif
+    BOOL DelayLoadWinCoreMemory::SetProcessCallTargets(_In_ HANDLE hProcess,
+        _In_ PVOID VirtualAddress,
+        _In_ SIZE_T RegionSize,
+        _In_ ULONG NumberOfOffsets,
+        _In_reads_(NumberOfOffsets) PCFG_CALL_TARGET_INFO OffsetInformation)
+    {
+#if defined(ENABLE_JIT_CLAMP)
+        // Ensure that dynamic code generation is allowed for this thread as
+        // this is required for the call to SetProcessValidCallTargets to
+        // succeed.
+        AutoEnableDynamicCodeGen enableCodeGen;
+#endif
+
+#if defined(DELAYLOAD_SET_CFG_TARGET)
+        if (m_hModule)
+        {
+            if (m_pfnSetProcessValidCallTargets == nullptr)
+            {
+                m_pfnSetProcessValidCallTargets = (PFNCSetProcessValidCallTargets) GetFunction("SetProcessValidCallTargets");
+                if (m_pfnSetProcessValidCallTargets == nullptr)
+                {
+                    return FALSE;
+                }
+            }
+
+            Assert(m_pfnSetProcessValidCallTargets != nullptr);
+            return m_pfnSetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffsets, OffsetInformation);
+        }
+
+        return FALSE;
+#else
+        return SetProcessValidCallTargets(hProcess, VirtualAddress, RegionSize, NumberOfOffsets, OffsetInformation);
+#endif
+    }
+
+    // Note. __declspec(guard(nocf)) causes the CFG check to be removed
+    // inside this function, and is needed only for test binaries (chk and FRETEST)
+#if defined(DELAYLOAD_SET_CFG_TARGET)
+    DECLSPEC_GUARDNOCF
+#endif
+        BOOL DelayLoadWinCoreMemory::SetProcessCallTargetsForMappedView(
+            _In_ HANDLE Process,
+            _In_ PVOID ViewBase,
+            _In_ SIZE_T ViewSize,
+            _In_ ULONG NumberOfOffsets,
+            _Inout_updates_(NumberOfOffsets) PCFG_CALL_TARGET_INFO OffsetInformation,
+            _In_ HANDLE Section,
+            _In_ ULONG64 FileOffset)
+    {
+#if defined(ENABLE_JIT_CLAMP)
+        // Ensure that dynamic code generation is allowed for this thread as
+        // this is required for the call to SetProcessValidCallTargets to
+        // succeed.
+        AutoEnableDynamicCodeGen enableCodeGen;
+#endif
+
+#if defined(DELAYLOAD_SET_CFG_TARGET)
+        if (m_hModule)
+        {
+            if (m_pfnSetProcessValidCallTargetsForMappedView == nullptr)
+            {
+                m_pfnSetProcessValidCallTargetsForMappedView = (PFNCSetProcessValidCallTargetsForMappedView)GetFunction("SetProcessValidCallTargetsForMappedView");
+                if (m_pfnSetProcessValidCallTargetsForMappedView == nullptr)
+                {
+                    return FALSE;
+                }
+            }
+
+            Assert(m_pfnSetProcessValidCallTargetsForMappedView != nullptr);
+            return m_pfnSetProcessValidCallTargetsForMappedView(Process, ViewBase, ViewSize, NumberOfOffsets, OffsetInformation, Section, FileOffset);
+        }
+
+        return FALSE;
+#else
+        return SetProcessValidCallTargetsForMappedView(Process, ViewBase, ViewSize, NumberOfOffsets, OffsetInformation, Section, FileOffset);
+#endif
+    }
+#endif
+
+    BOOL DelayLoadWinCoreProcessThreads::GetMitigationPolicyForProcess(
+        __in HANDLE hProcess,
+        __in PROCESS_MITIGATION_POLICY MitigationPolicy,
+        __out_bcount(nLength) PVOID lpBuffer,
+        __in SIZE_T nLength
+        )
+    {
+#if defined(DELAYLOAD_SET_CFG_TARGET)
+        if (m_hModule)
+        {
+            if (m_pfnGetProcessMitigationPolicy == nullptr)
+            {
+                m_pfnGetProcessMitigationPolicy = (PFNCGetMitigationPolicyForProcess) GetFunction("GetProcessMitigationPolicy");
+                if (m_pfnGetProcessMitigationPolicy == nullptr)
+                {
+                    return FALSE;
+                }
+            }
+
+            Assert(m_pfnGetProcessMitigationPolicy != nullptr);
+            return m_pfnGetProcessMitigationPolicy(hProcess, MitigationPolicy, lpBuffer, nLength);
+        }
+        return FALSE;
+#else
+        return BinaryFeatureControl::GetMitigationPolicyForProcess(hProcess, MitigationPolicy, lpBuffer, nLength);
+#endif // ENABLE_DEBUG_CONFIG_OPTIONS
+    }
+
     BOOL DelayLoadWinCoreProcessThreads::GetProcessInformation(
         __in HANDLE hProcess,
         __in PROCESS_INFORMATION_CLASS ProcessInformationClass,
         __out_bcount(nLength) PVOID lpBuffer,
         __in SIZE_T nLength
-    )
+        )
     {
 #if defined(DELAYLOAD_SET_CFG_TARGET) || defined(_M_ARM)
         if (m_hModule)
         {
             if (m_pfnGetProcessInformation == nullptr)
             {
-                m_pfnGetProcessInformation = (PFNCGetProcessInformation)GetFunction("GetProcessInformation");
+                m_pfnGetProcessInformation = (PFNCGetProcessInformation) GetFunction("GetProcessInformation");
                 if (m_pfnGetProcessInformation == nullptr)
                 {
                     return FALSE;

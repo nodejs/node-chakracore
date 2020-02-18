@@ -26,7 +26,7 @@ namespace Js
 #if DBG
         static bool IsBoxed(Var var)
         {
-            return StackScriptFunction::FromVar(var)->boxedScriptFunction != nullptr;
+            return VarTo<StackScriptFunction>(var)->boxedScriptFunction != nullptr;
         }
 
 
@@ -41,8 +41,6 @@ namespace Js
         }
     private:
         static ScriptFunction * Box(StackScriptFunction * stackScriptFunction, void * returnAddress);
-        static StackScriptFunction * FromVar(Var var);
-        static StackScriptFunction * UnsafeFromVar(Var var);
         struct BoxState
         {
         public:
@@ -85,6 +83,11 @@ namespace Js
 #if ENABLE_TTD
         virtual TTD::NSSnapObjects::SnapObjectType GetSnapTag_TTD() const override;
         virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
+
+        virtual void MarshalCrossSite_TTDInflate() override
+        {
+            Assert(false);
+        }
 #endif
 
     public:
@@ -93,4 +96,14 @@ namespace Js
             return VTableValue::VtableStackScriptFunction;
         }
     };
+
+    template <> inline bool VarIsImpl<StackScriptFunction>(RecyclableObject* obj)
+    {
+        bool result = VarIs<ScriptFunction>(obj);
+        if (result)
+        {
+            Assert(ThreadContext::IsOnStack(obj));
+        }
+        return result;
+    }
 };

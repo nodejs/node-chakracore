@@ -50,10 +50,11 @@ namespace Js
 
         JavascriptProxy(DynamicType * type);
         JavascriptProxy(DynamicType * type, ScriptContext * scriptContext, RecyclableObject* target, RecyclableObject* handler);
-        static BOOL Is(_In_ Var obj);
-        static BOOL Is(_In_ RecyclableObject* obj);
-        static JavascriptProxy* FromVar(Var obj) { AssertOrFailFast(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
-        static JavascriptProxy* UnsafeFromVar(Var obj) { Assert(Is(obj)); return static_cast<JavascriptProxy*>(obj); }
+
+        // before recursively calling something on 'target' use this helper in case there is nesting of proxies.
+        // the proxies could be deep nested and cause SO when processed recursively.
+        static const JavascriptProxy* UnwrapNestedProxies(const JavascriptProxy* proxy);
+
 #ifndef IsJsDiag
         RecyclableObject* GetTarget();
         RecyclableObject* GetHandler();
@@ -168,7 +169,7 @@ namespace Js
             for (uint32 i = 0; i < len; i++)
             {
                 if (!JavascriptOperators::GetItem(trapResultArray, i, &element, scriptContext) || // missing
-                    !(JavascriptString::Is(element) || JavascriptSymbol::Is(element)))  // neither String nor Symbol
+                    !(VarIs<JavascriptString>(element) || VarIs<JavascriptSymbol>(element)))  // neither String nor Symbol
                 {
                     JavascriptError::ThrowTypeError(scriptContext, JSERR_InconsistentTrapResult, _u("ownKeys"));
                 }
@@ -176,16 +177,14 @@ namespace Js
                 JavascriptConversion::ToPropertyKey(element, scriptContext, &propertyRecord, nullptr);
                 propertyId = propertyRecord->GetPropertyId();
 
-                if (!targetToTrapResultMap.ContainsKey(propertyId))
+                if (propertyId != Constants::NoProperty)
                 {
-                    if (propertyId != Constants::NoProperty)
+                    if (targetToTrapResultMap.AddNew(propertyId, true) == -1)
                     {
-                        targetToTrapResultMap.Add(propertyId, true);
+                        JavascriptError::ThrowTypeError(scriptContext, JSERR_DuplicateKeysFromOwnPropertyKeys);
                     }
                 }
 
-                // We explicitly allow duplicates in the results. A map is sufficient since the spec steps that remove entries
-                // remove ALL of them at the same time.
                 if (fn(propertyRecord))
                 {
                     trapResult->DirectSetItemAt(trapResultIndex++, element);
@@ -236,4 +235,9 @@ namespace Js
         virtual void ExtractSnapObjectDataInto(TTD::NSSnapObjects::SnapObject* objData, TTD::SlabAllocator& alloc) override;
 #endif
     };
+
+    template <> inline bool VarIsImpl<JavascriptProxy>(RecyclableObject* obj)
+    {
+        return JavascriptOperators::GetTypeId(obj) == TypeIds_Proxy;
+    }
 }

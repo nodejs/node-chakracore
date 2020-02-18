@@ -58,6 +58,42 @@ namespace Js
         return static_cast<hash_t>((propertyId << ObjectSlotAttr_BitSize) | static_cast<ObjectSlotAttr_TSize>(attributes));
     }
 
+    bool PathTypeSuccessorInfo::GetSuccessor(const PathTypeSuccessorKey successorKey, RecyclerWeakReference<DynamicType> ** typeWeakRef) const
+    {
+        if (IsSingleSuccessor())
+        {
+            return static_cast<const PathTypeSingleSuccessorInfo*>(this)->GetSuccessor(successorKey, typeWeakRef);
+        }
+        else
+        {
+            return static_cast<const PathTypeMultiSuccessorInfo*>(this)->GetSuccessor(successorKey, typeWeakRef);
+        }
+    }
+
+    void PathTypeSuccessorInfo::SetSuccessor(DynamicType * type, const PathTypeSuccessorKey successorKey, RecyclerWeakReference<DynamicType> * typeWeakRef, ScriptContext * scriptContext)
+    {
+        if (IsSingleSuccessor())
+        {
+            static_cast<PathTypeSingleSuccessorInfo*>(this)->SetSuccessor(type, successorKey, typeWeakRef, scriptContext);
+        }
+        else
+        {
+            static_cast<PathTypeMultiSuccessorInfo*>(this)->SetSuccessor(type, successorKey, typeWeakRef, scriptContext);
+        }
+    }
+
+    void PathTypeSuccessorInfo::ReplaceSuccessor(DynamicType * type, PathTypeSuccessorKey successorKey, RecyclerWeakReference<DynamicType> * typeWeakRef)
+    {
+        if (IsSingleSuccessor())
+        {
+            static_cast<PathTypeSingleSuccessorInfo*>(this)->ReplaceSuccessor(type, successorKey, typeWeakRef);
+        }
+        else
+        {
+            static_cast<PathTypeMultiSuccessorInfo*>(this)->ReplaceSuccessor(type, successorKey, typeWeakRef);
+        }
+    }
+
     template<class Fn>
     void PathTypeSuccessorInfo::MapSuccessors(Fn fn)
     {
@@ -2387,7 +2423,7 @@ namespace Js
 #ifdef PROFILE_TYPES
         instance->GetScriptContext()->convertPathToDictionaryItemAttributesCount++;
 #endif
-        return JavascriptArray::Is(instance) ?
+        return JavascriptArray::IsNonES5Array(instance) ?
             ConvertToES5ArrayType(instance) : ConvertToDictionaryType(instance);
     }
 
@@ -3090,7 +3126,7 @@ namespace Js
             if (ShouldFixAnyProperties() && CanBeSingletonInstance(instance))
             {
                 bool markAsFixed = !isNonFixed && !IsInternalPropertyId(propertyId) &&
-                    (JavascriptFunction::Is(value) ? ShouldFixMethodProperties() || ShouldFixAccessorProperties() :
+                    (VarIs<JavascriptFunction>(value) ? ShouldFixMethodProperties() || ShouldFixAccessorProperties() :
                                     (ShouldFixDataProperties() && CheckHeuristicsForFixedDataProps(instance, propertyRecord, propertyId, value)));
 
                 // Mark the newly added field as fixed and prevent population of inline caches.
@@ -3228,7 +3264,7 @@ namespace Js
         }
 
         Var value = this->GetTypePath()->GetSingletonFixedFieldAt(index, GetPathLength(), requestContext);
-        if (value && ((IsFixedMethodProperty(propertyType) && JavascriptFunction::Is(value)) || IsFixedDataProperty(propertyType)))
+        if (value && ((IsFixedMethodProperty(propertyType) && VarIs<JavascriptFunction>(value)) || IsFixedDataProperty(propertyType)))
         {
             *pProperty = value;
             if (markAsUsed)
@@ -3647,7 +3683,8 @@ namespace Js
             Assert(setters != nullptr);
             PathTypeSetterSlotIndex setterSlot = setters[propertyIndex];
             Assert(setterSlot != NoSetterSlot && setterSlot < GetPathLength());
-            *setterValue = DynamicObject::FromVar(instance)->GetSlot(setterSlot);
+            AssertOrFailFast(VarIsCorrectType(instance));
+            *setterValue = instance->GetSlot(setterSlot);
             PropertyValueInfo::Set(info, instance, setterSlot, ObjectSlotAttributesToPropertyAttributes(attr), InlineCacheSetterFlag);
             return Accessor;
         }
@@ -3728,7 +3765,7 @@ namespace Js
             CacheOperators::CachePropertyReadForGetter(info, originalInstance, propertyId, requestContext);
             PropertyValueInfo::SetNoCache(info, instance); // we already cached getter, so we don't have to do it once more
 
-            RecyclableObject* func = RecyclableObject::UnsafeFromVar(instance->GetSlot(index));
+            RecyclableObject* func = UnsafeVarTo<RecyclableObject>(instance->GetSlot(index));
             *value = JavascriptOperators::CallGetter(func, originalInstance, requestContext);
             return true;
         }
@@ -3770,7 +3807,7 @@ namespace Js
             if (attributes[index] & ObjectSlotAttr_Accessor)
             {
                 Assert(setters[index] != Constants::NoSlot);
-                RecyclableObject* func = RecyclableObject::FromVar(instance->GetSlot(setters[index]));
+                RecyclableObject* func = VarTo<RecyclableObject>(instance->GetSlot(setters[index]));
                 JavascriptOperators::CallSetter(func, instance, value, NULL);
 
                 // Wait for the setter to return before setting up the inline cache info, as the setter may change

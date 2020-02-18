@@ -119,11 +119,11 @@ public:
         Js::RegSlot returnValueRegSlot = Js::Constants::NoRegister, const bool isInlinedConstructor = false,
         Js::ProfileId callSiteIdInParentFunc = UINT16_MAX, bool isGetterSetter = false);
 public:
-    void * const GetCodeGenAllocators()
+    void * GetCodeGenAllocators()
     {
         return this->GetTopFunc()->m_codeGenAllocators;
     }
-    InProcCodeGenAllocators * const GetInProcCodeGenAllocators()
+    InProcCodeGenAllocators * GetInProcCodeGenAllocators()
     {
         Assert(!JITManager::GetJITManager()->IsJITServer());
         return reinterpret_cast<InProcCodeGenAllocators*>(this->GetTopFunc()->m_codeGenAllocators);
@@ -274,7 +274,7 @@ public:
         return &m_output;
     }
 
-    const JITTimeFunctionBody * const GetJITFunctionBody() const
+    const JITTimeFunctionBody * GetJITFunctionBody() const
     {
         return m_workItem->GetJITFunctionBody();
     }
@@ -517,6 +517,17 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
         m_inlineeFrameStartSym = sym;
     }
 
+    void SetInlineeStart(IR::Instr *inlineeStartInstr)
+    {
+        Assert(inlineeStart == nullptr);
+        inlineeStart = inlineeStartInstr;
+    }
+
+    IR::Instr* GetInlineeStart()
+    {
+        return inlineeStart;
+    }
+
     IR::SymOpnd *GetInlineeArgCountSlotOpnd()
     {
         return GetInlineeOpndAtOffset(Js::Constants::InlineeMetaArgIndex_Argc * MachPtr);
@@ -579,7 +590,6 @@ static const unsigned __int64 c_debugFillPattern8 = 0xcececececececece;
     Js::Var AllocateNumber(double value);
 
     ObjTypeSpecFldInfo* GetObjTypeSpecFldInfo(const uint index) const;
-    void ClearObjTypeSpecFldInfo(const uint index);
     ObjTypeSpecFldInfo* GetGlobalObjTypeSpecFldInfo(uint propertyInfoId) const;
 
     // Gets an inline cache pointer to use in jitted code. Cached data may not be stable while jitting. Does not return null.
@@ -715,13 +725,16 @@ public:
     StackSym *          tempSymDouble;
     StackSym *          tempSymBool;
     uint32              loopCount;
+    uint32              unoptimizableArgumentsObjReference;
     Js::ProfileId       callSiteIdInParentFunc;
+    InlineeFrameInfo*   cachedInlineeFrameInfo;
     bool                m_hasCalls: 1; // This is more accurate compared to m_isLeaf
     bool                m_hasInlineArgsOpt : 1;
     bool                m_doFastPaths : 1;
     bool                hasBailout: 1;
     bool                hasBailoutInEHRegion : 1;
     bool                hasStackArgs: 1;
+    bool                hasArgLenAndConstOpt : 1;
     bool                hasImplicitParamLoad : 1; // True if there is a load of CallInfo, FunctionObject
     bool                hasThrow : 1;
     bool                hasUnoptimizedArgumentsAccess : 1; // True if there are any arguments access beyond the simple case of this.apply pattern
@@ -996,7 +1009,6 @@ public:
     void SetScopeObjSym(StackSym * sym);
     StackSym * GetScopeObjSym();
     bool IsTrackCompoundedIntOverflowDisabled() const;
-    bool IsMemOpDisabled() const;
     bool IsArrayCheckHoistDisabled() const;
     bool IsStackArgOptDisabled() const;
     bool IsSwitchOptDisabled() const;
@@ -1041,6 +1053,7 @@ private:
     Func * const        topFunc;
     Func * const        parentFunc;
     StackSym *          m_inlineeFrameStartSym;
+    IR::Instr *         inlineeStart;
     uint                maxInlineeArgOutSize;
     const bool          m_isBackgroundJIT;
     bool                hasInstrNumber;

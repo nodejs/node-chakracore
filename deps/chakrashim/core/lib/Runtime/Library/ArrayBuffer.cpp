@@ -39,21 +39,9 @@ namespace Js
         return 0;
     }
 
-    bool ArrayBufferBase::Is(Var value)
+    template <> bool VarIsImpl<ArrayBufferBase>(RecyclableObject* obj)
     {
-        return ArrayBuffer::Is(value) || SharedArrayBuffer::Is(value);
-    }
-
-    ArrayBufferBase* ArrayBufferBase::FromVar(Var value)
-    {
-        AssertOrFailFast(ArrayBufferBase::Is(value));
-        return static_cast<ArrayBuffer *> (value);
-    }
-
-    ArrayBufferBase* ArrayBufferBase::UnsafeFromVar(Var value)
-    {
-        Assert(ArrayBufferBase::Is(value));
-        return static_cast<ArrayBuffer *> (value);
+        return VarIs<ArrayBuffer>(obj) || VarIs<SharedArrayBuffer>(obj);
     }
 
     ArrayBuffer* ArrayBuffer::NewFromDetachedState(DetachedStateBase* state, JavascriptLibrary *library)
@@ -100,7 +88,7 @@ namespace Js
         switch (JavascriptOperators::GetTypeId(parent))
         {
         case TypeIds_Int8Array:
-                if (Int8VirtualArray::Is(parent))
+                if (VarIs<Int8VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Int8VirtualArray>::HasVirtualTable(parent))
                     {
@@ -112,11 +100,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Int8Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Uint8Array:
-                if (Uint8VirtualArray::Is(parent))
+                if (VarIs<Uint8VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Uint8VirtualArray>::HasVirtualTable(parent))
                     {
@@ -128,11 +116,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Uint8Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Uint8ClampedArray:
-                if (Uint8ClampedVirtualArray::Is(parent))
+                if (VarIs<Uint8ClampedVirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Uint8ClampedVirtualArray>::HasVirtualTable(parent))
                     {
@@ -144,11 +132,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Uint8ClampedArray>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Int16Array:
-                if (Int16VirtualArray::Is(parent))
+                if (VarIs<Int16VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Int16VirtualArray>::HasVirtualTable(parent))
                     {
@@ -160,11 +148,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Int16Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Uint16Array:
-                if (Uint16VirtualArray::Is(parent))
+                if (VarIs<Uint16VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Uint16VirtualArray>::HasVirtualTable(parent))
                     {
@@ -176,11 +164,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Uint16Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Int32Array:
-                if (Int32VirtualArray::Is(parent))
+                if (VarIs<Int32VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Int32VirtualArray>::HasVirtualTable(parent))
                     {
@@ -192,11 +180,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Int32Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Uint32Array:
-                if (Uint32VirtualArray::Is(parent))
+                if (VarIs<Uint32VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Uint32VirtualArray>::HasVirtualTable(parent))
                     {
@@ -208,11 +196,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Uint32Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Float32Array:
-                if (Float32VirtualArray::Is(parent))
+                if (VarIs<Float32VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Float32VirtualArray>::HasVirtualTable(parent))
                     {
@@ -224,11 +212,11 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Float32Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Float64Array:
-                if (Float64VirtualArray::Is(parent))
+                if (VarIs<Float64VirtualArray>(parent))
                 {
                     if (VirtualTableInfo<Float64VirtualArray>::HasVirtualTable(parent))
                     {
@@ -240,18 +228,18 @@ namespace Js
                         VirtualTableInfo<CrossSiteObject<Float64Array>>::SetVirtualTable(parent);
                     }
                 }
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
                 break;
 
         case TypeIds_Int64Array:
         case TypeIds_Uint64Array:
         case TypeIds_CharArray:
         case TypeIds_BoolArray:
-                TypedArrayBase::UnsafeFromVar(parent)->ClearLengthAndBufferOnDetach();
+                UnsafeVarTo<TypedArrayBase>(parent)->ClearLengthAndBufferOnDetach();
             break;
 
         case TypeIds_DataView:
-                DataView::FromVar(parent)->ClearLengthAndBufferOnDetach();
+                VarTo<DataView>(parent)->ClearLengthAndBufferOnDetach();
             break;
 
         default:
@@ -345,6 +333,12 @@ namespace Js
         }
     }
 
+    ArrayBuffer * ArrayBuffer::GetAsArrayBuffer()
+    {
+        AssertOrFailFast(VarIsCorrectType(this));
+        return this;
+    }
+
     uint32 ArrayBuffer::ToIndex(Var value, int32 errorCode, ScriptContext *scriptContext, uint32 MaxAllowedLength, bool checkSameValueZero)
     {
         if (JavascriptOperators::IsUndefined(value))
@@ -408,8 +402,8 @@ namespace Js
         }
 
         RecyclableObject* newArr = scriptContext->GetLibrary()->CreateArrayBuffer(byteLength);
-        Assert(ArrayBuffer::Is(newArr));
-        if (byteLength > 0 && !ArrayBuffer::FromVar(newArr)->GetByteLength())
+        Assert(VarIs<ArrayBuffer>(newArr));
+        if (byteLength > 0 && !VarTo<ArrayBuffer>(newArr)->GetByteLength())
         {
             JavascriptError::ThrowRangeError(scriptContext, JSERR_FunctionArgument_Invalid);
         }
@@ -420,7 +414,7 @@ namespace Js
         }
 #endif
         return isCtorSuperCall ?
-            JavascriptOperators::OrdinaryCreateFromConstructor(RecyclableObject::FromVar(newTarget), newArr, nullptr, scriptContext) :
+            JavascriptOperators::OrdinaryCreateFromConstructor(VarTo<RecyclableObject>(newTarget), newArr, nullptr, scriptContext) :
             newArr;
     }
 
@@ -434,12 +428,12 @@ namespace Js
 
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        if (args.Info.Count == 0 || !ArrayBuffer::Is(args[0]))
+        if (args.Info.Count == 0 || !VarIs<ArrayBuffer>(args[0]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
         }
 
-        ArrayBuffer* arrayBuffer = ArrayBuffer::FromVar(args[0]);
+        ArrayBuffer* arrayBuffer = VarTo<ArrayBuffer>(args[0]);
         if (arrayBuffer->IsDetached())
         {
             return JavascriptNumber::ToVar(0, scriptContext);
@@ -468,7 +462,7 @@ namespace Js
         }
 
         // Only DataView or any TypedArray objects have [[ViewedArrayBuffer]] internal slots
-        if (DataView::Is(arg) || TypedArrayBase::Is(arg))
+        if (VarIs<DataView>(arg) || VarIs<TypedArrayBase>(arg))
         {
             return library->GetTrue();
         }
@@ -489,12 +483,12 @@ namespace Js
 
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        if (args.Info.Count < 2 || !ArrayBuffer::Is(args[1]))
+        if (args.Info.Count < 2 || !VarIs<ArrayBuffer>(args[1]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
         }
 
-        ArrayBuffer* arrayBuffer = ArrayBuffer::FromVar(args[1]);
+        ArrayBuffer* arrayBuffer = VarTo<ArrayBuffer>(args[1]);
 
         if (arrayBuffer->IsDetached())
         {
@@ -523,13 +517,13 @@ namespace Js
 
         Assert(!(callInfo.Flags & CallFlags_New));
 
-        if (!ArrayBuffer::Is(args[0]))
+        if (!VarIs<ArrayBuffer>(args[0]))
         {
             JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
         }
 
         JavascriptLibrary* library = scriptContext->GetLibrary();
-        ArrayBuffer* arrayBuffer = ArrayBuffer::FromVar(args[0]);
+        ArrayBuffer* arrayBuffer = VarTo<ArrayBuffer>(args[0]);
 
         if (arrayBuffer->IsDetached()) // 24.1.4.3: 5. If IsDetachedBuffer(O) is true, then throw a TypeError exception.
         {
@@ -585,12 +579,12 @@ namespace Js
                 return JavascriptOperators::NewScObject(constructor, Js::Arguments(constructorCallInfo, constructorArgs), scriptContext);
             });
 
-            if (!ArrayBuffer::Is(newVar)) // 24.1.4.3: 19.If new does not have an [[ArrayBufferData]] internal slot throw a TypeError exception.
+            if (!VarIs<ArrayBuffer>(newVar)) // 24.1.4.3: 19.If new does not have an [[ArrayBufferData]] internal slot throw a TypeError exception.
             {
                 JavascriptError::ThrowTypeError(scriptContext, JSERR_NeedArrayBufferObject);
             }
 
-            newBuffer = ArrayBuffer::FromVar(newVar);
+            newBuffer = VarTo<ArrayBuffer>(newVar);
 
             if (newBuffer->IsDetached()) // 24.1.4.3: 21. If IsDetachedBuffer(new) is true, then throw a TypeError exception.
             {
@@ -638,25 +632,6 @@ namespace Js
         Assert(args.Info.Count > 0);
 
         return args[0];
-    }
-
-    ArrayBuffer* ArrayBuffer::FromVar(Var aValue)
-    {
-        AssertOrFailFastMsg(Is(aValue), "var must be an ArrayBuffer");
-
-        return static_cast<ArrayBuffer *>(aValue);
-    }
-
-    ArrayBuffer* ArrayBuffer::UnsafeFromVar(Var aValue)
-    {
-        AssertMsg(Is(aValue), "var must be an ArrayBuffer");
-
-        return static_cast<ArrayBuffer *>(aValue);
-    }
-
-    bool  ArrayBuffer::Is(Var aValue)
-    {
-        return JavascriptOperators::GetTypeId(aValue) == TypeIds_ArrayBuffer;
     }
 
     ArrayBufferContentForDelayedFreeBase* ArrayBuffer::CopyBufferContentForDelayedFree(RefCountedBuffer * content, DECLSPEC_GUARD_OVERFLOW uint32 bufferLength)

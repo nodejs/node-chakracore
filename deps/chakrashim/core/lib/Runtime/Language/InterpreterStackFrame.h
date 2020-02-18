@@ -50,17 +50,14 @@ namespace Js
             Setup(ScriptFunction * function, Arguments& args, bool bailout = false, bool inlinee = false);
             Setup(ScriptFunction * function, Var * inParams, int inSlotsCount);
             size_t GetAllocationVarCount() const { return varAllocCount; }
-            size_t GetStackAllocationVarCount() const { return stackVarAllocCount; }
 
             InterpreterStackFrame * AllocateAndInitialize(bool doProfile, bool * releaseAlloc);
 
-            InterpreterStackFrame * InitializeAllocation(__in_ecount(varAllocCount) Var * allocation, __in_ecount(stackVarAllocCount) Var * stackAllocation
-                                                         , bool initParams, bool profileParams, LoopHeader* loopHeaderArray, DWORD_PTR stackAddr
 #if DBG
-                                                         , Var invalidStackVar
+            InterpreterStackFrame * InitializeAllocation(__in_ecount(varAllocCount) Var * allocation, bool initParams, bool profileParams, LoopHeader* loopHeaderArray, DWORD_PTR stackAddr, Var invalidStackVar);
+#else
+            InterpreterStackFrame * InitializeAllocation(__in_ecount(varAllocCount) Var * allocation, bool initParams, bool profileParams, LoopHeader* loopHeaderArray, DWORD_PTR stackAddr);
 #endif
-            );
-
             uint GetLocalCount() const { return localCount; }
 
         private:
@@ -78,7 +75,6 @@ namespace Js
             int inSlotsCount;
             uint localCount;
             uint varAllocCount;
-            uint stackVarAllocCount;
             uint inlineCacheCount;
             Js::CallFlags callFlags;
             bool bailedOut;
@@ -110,7 +106,7 @@ namespace Js
         Var* m_inParams;                // Range of 'in' parameters
         Var* m_outParams;               // Range of 'out' parameters (offset in m_localSlots)
         Var* m_outSp;                   // Stack pointer for next outparam
-        Var* m_outSpCached;             // Stack pointer for caching previos SP (in order to assist in try..finally)
+        Var* m_outSpCached;             // Stack pointer for caching previous SP (in order to assist in try..finally)
         Var  m_arguments;               // Dedicated location for this frame's arguments object
         StackScriptFunction * stackNestedFunctions;
         FrameDisplay * localFrameDisplay;
@@ -190,6 +186,9 @@ namespace Js
 
         // 16-byte aligned
         __declspec(align(16)) Var m_localSlots[0];           // Range of locals and temporaries
+
+        static const int LocalsThreshold = 32 * 1024; // Number of locals vars we'll allocate on the frame.
+                                                      // If there are more, we'll use an arena.
 
         //This class must have an empty ctor (otherwise it will break the code in InterpreterStackFrame::InterpreterThunk
         inline InterpreterStackFrame() { }
@@ -362,13 +361,13 @@ namespace Js
         _NOINLINE static Var InterpreterThunk(RecyclableObject* function, CallInfo callInfo, ...);
 #endif
         static Var InterpreterHelper(ScriptFunction* function, ArgumentReader args, void* returnAddress, void* addressOfReturnAddress, AsmJsReturnStruct* asmReturn = nullptr);
-        static const bool ShouldDoProfile(FunctionBody* executeFunction);
+        static bool ShouldDoProfile(FunctionBody* executeFunction);
         static InterpreterStackFrame* CreateInterpreterStackFrameForGenerator(ScriptFunction* function, FunctionBody* executeFunction, JavascriptGenerator* generator, bool doProfile);
 
         void InitializeClosures();
 
-        static const int LocalsThreshold = 32 * 1024; // Number of locals vars we'll allocate on the frame.
-                                                      // If there are more, we'll use an arena.
+        static void OP_StPropIdArrFromVar(Var instance, uint32 index, Var value, ScriptContext* scriptContext);
+        static Js::PropertyIdArray * OP_NewPropIdArrForCompProps(uint32 size, ScriptContext* scriptContext);
 
     private:
 #if DYNAMIC_INTERPRETER_THUNK
@@ -657,6 +656,7 @@ namespace Js
 
         void OP_EnsureNoRootProperty(uint propertyIdIndex);
         void OP_EnsureNoRootRedeclProperty(uint propertyIdIndex);
+        void OP_EnsureCanDeclGloFunc(uint propertyIdIndex);
         void OP_ScopedEnsureNoRedeclProperty(Var aValue, uint propertyIdIndex, Var aValue2);
         Var OP_InitUndecl();
         void OP_InitUndeclSlot(Var aValue, int32 slot);

@@ -430,11 +430,11 @@ namespace Js
                 RecyclableObject * function;
                 if (cache->u.accessor.isOnProto)
                 {
-                    function = RecyclableObject::UnsafeFromVar(cache->GetPropertyValue<slotType>(cache->u.accessor.object, cache->u.accessor.slotIndex));
+                    function = UnsafeVarTo<RecyclableObject>(cache->GetPropertyValue<slotType>(cache->u.accessor.object, cache->u.accessor.slotIndex));
                 }
                 else
                 {
-                    function = RecyclableObject::UnsafeFromVar(cache->GetPropertyValue<slotType>(DynamicObject::UnsafeFromVar(propertyObject), cache->u.accessor.slotIndex));
+                    function = UnsafeVarTo<RecyclableObject>(cache->GetPropertyValue<slotType>(UnsafeVarTo<DynamicObject>(propertyObject), cache->u.accessor.slotIndex));
                 }
 
                 *propertyValue = JavascriptOperators::CallGetter(function, instance, requestContext);
@@ -461,12 +461,12 @@ namespace Js
 #if DBG
                 Var slowPathValue = JavascriptOperators::GetProperty(propertyObject, propertyId, requestContext);
                 Var rootObjectValue = nullptr;
-                if (RootObjectBase::Is(propertyObject))
+                if (VarIs<RootObjectBase>(propertyObject))
                 {
                     rootObjectValue = JavascriptOperators::GetRootProperty(propertyObject, propertyId, requestContext);
                 }
                 Assert(*propertyValue == slowPathValue ||
-                    (RootObjectBase::Is(propertyObject) && *propertyValue == rootObjectValue) ||
+                    (VarIs<RootObjectBase>(propertyObject) && *propertyValue == rootObjectValue) ||
                     // In some cases, such as CustomExternalObject, if implicit calls are disabled GetPropertyQuery may return null. See CustomExternalObject::GetPropertyQuery for an example.
                     (slowPathValue == requestContext->GetLibrary()->GetNull() && requestContext->GetThreadContext()->IsDisableImplicitCall() && propertyObject->GetType()->IsExternal()));
 #endif

@@ -62,6 +62,10 @@ using namespace Js;
             {
                 return TaggedInt::Increment(aRight, scriptContext);
             }
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Increment(aRight);
+            }
 
             double inc = Increment_Helper(aRight, scriptContext);
             return JavascriptNumber::InPlaceNew(inc, scriptContext, result);
@@ -74,6 +78,10 @@ using namespace Js;
             if (TaggedInt::Is(aRight))
             {
                 return TaggedInt::Increment(aRight, scriptContext);
+            }
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Increment(aRight);
             }
 
             double inc = Increment_Helper(aRight, scriptContext);
@@ -89,6 +97,10 @@ using namespace Js;
             {
                 return TaggedInt::Decrement(aRight, scriptContext);
             }
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Decrement(aRight);
+            }
 
             double dec = Decrement_Helper(aRight,scriptContext);
             return JavascriptNumber::InPlaceNew(dec, scriptContext, result);
@@ -102,6 +114,10 @@ using namespace Js;
             {
                 return TaggedInt::Decrement(aRight, scriptContext);
             }
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Decrement(aRight);
+            }
 
             double dec = Decrement_Helper(aRight,scriptContext);
             return JavascriptNumber::ToVarIntCheck(dec, scriptContext);
@@ -109,6 +125,24 @@ using namespace Js;
         }
         JIT_HELPER_TEMPLATE(Op_Decrement_Full, Op_Decrement)
 
+        Var JavascriptMath::Increment_Numeric(Var aRight, ScriptContext* scriptContext)
+        {
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Increment(aRight);
+            }
+            return JavascriptMath::Add(aRight, TaggedInt::ToVarUnchecked(1), scriptContext);
+        }
+
+        Var JavascriptMath::Decrement_Numeric(Var aRight, ScriptContext* scriptContext)
+        {
+            if (VarIs<JavascriptBigInt>(aRight))
+            {
+                return JavascriptBigInt::Decrement(aRight);
+            }
+            return JavascriptMath::Subtract(aRight, TaggedInt::ToVarUnchecked(1), scriptContext);
+        }
+            
         Var JavascriptMath::And_Full(Var aLeft, Var aRight, ScriptContext* scriptContext)
         {
             JIT_HELPER_REENTRANT_HEADER(Op_And_Full);
@@ -226,7 +260,7 @@ using namespace Js;
                 }
                 else if (typeLeft == TypeIds_String)
                 {
-                    return JavascriptString::Concat(JavascriptString::UnsafeFromVar(aLeft), JavascriptString::UnsafeFromVar(aRight));
+                    return JavascriptString::Concat(UnsafeVarTo<JavascriptString>(aLeft), UnsafeVarTo<JavascriptString>(aRight));
                 }
             }
             else if(typeLeft == TypeIds_Number && typeRight == TypeIds_Integer)
@@ -307,8 +341,8 @@ using namespace Js;
                 {
                     if( typeRight == TypeIds_String )
                     {
-                        JavascriptString* leftString = JavascriptString::UnsafeFromVar(aLeft);
-                        JavascriptString* rightString = JavascriptString::UnsafeFromVar(aRight);
+                        JavascriptString* leftString = UnsafeVarTo<JavascriptString>(aLeft);
+                        JavascriptString* rightString = UnsafeVarTo<JavascriptString>(aRight);
                         return JavascriptString::Concat(leftString, rightString);
                     }
                     break;
@@ -374,13 +408,13 @@ using namespace Js;
             JIT_HELPER_REENTRANT_HEADER(Op_AddLeftDead);
             if (JavascriptOperators::GetTypeId(aLeft) == TypeIds_String)
             {
-                JavascriptString* leftString = JavascriptString::UnsafeFromVar(aLeft);
+                JavascriptString* leftString = UnsafeVarTo<JavascriptString>(aLeft);
                 JavascriptString* rightString;
                 TypeId rightType = JavascriptOperators::GetTypeId(aRight);
                 switch(rightType)
                 {
                     case TypeIds_String:
-                        rightString = JavascriptString::UnsafeFromVar(aRight);
+                        rightString = UnsafeVarTo<JavascriptString>(aRight);
 
 StringCommon:
                         return leftString->ConcatDestructive(rightString);
@@ -430,15 +464,26 @@ StringCommon:
 
         Var JavascriptMath::Add_FullHelper(Var primLeft, Var primRight, ScriptContext* scriptContext, JavascriptNumber *result, bool leftIsDead)
         {
-            // If either side is a string, then the result is also a string
-            if (JavascriptOperators::GetTypeId(primLeft) == TypeIds_String)
+            TypeId typeLeft = JavascriptOperators::GetTypeId(primLeft);
+            TypeId typeRight = JavascriptOperators::GetTypeId(primRight);
+            if (typeLeft == TypeIds_BigInt || typeRight == TypeIds_BigInt)
             {
-                JavascriptString* stringLeft = JavascriptString::UnsafeFromVar(primLeft);
+                if (typeRight != typeLeft)
+                {
+                    JavascriptError::ThrowTypeError(scriptContext, VBSERR_TypeMismatch, _u("Add BigInt"));
+                }
+                return JavascriptBigInt::Add(primLeft, primRight);
+            }
+
+            // If either side is a string, then the result is also a string
+            if (typeLeft == TypeIds_String)
+            {
+                JavascriptString* stringLeft = UnsafeVarTo<JavascriptString>(primLeft);
                 JavascriptString* stringRight = nullptr;
 
-                if (JavascriptOperators::GetTypeId(primRight) == TypeIds_String)
+                if (typeRight == TypeIds_String)
                 {
-                    stringRight = JavascriptString::UnsafeFromVar(primRight);
+                    stringRight = UnsafeVarTo<JavascriptString>(primRight);
                 }
                 else
                 {
@@ -452,10 +497,10 @@ StringCommon:
                 return JavascriptString::Concat(stringLeft, stringRight);
             }
 
-            if (JavascriptOperators::GetTypeId(primRight) == TypeIds_String)
+            if (typeRight == TypeIds_String)
             {
                 JavascriptString* stringLeft = JavascriptConversion::ToString(primLeft, scriptContext);
-                JavascriptString* stringRight = JavascriptString::UnsafeFromVar(primRight);
+                JavascriptString* stringRight = UnsafeVarTo<JavascriptString>(primRight);
 
                 if(leftIsDead)
                 {
@@ -791,7 +836,23 @@ StringCommon:
         Var JavascriptMath::Subtract_Full(Var aLeft, Var aRight, ScriptContext* scriptContext)
         {
             JIT_HELPER_REENTRANT_HEADER(Op_Subtract_Full);
-            double difference = Subtract_Helper(aLeft, aRight, scriptContext);
+
+            Var aLeftToPrim = JavascriptConversion::ToPrimitive<JavascriptHint::HintNumber>(aLeft, scriptContext);
+            Var aRightToPrim = JavascriptConversion::ToPrimitive<JavascriptHint::HintNumber>(aRight, scriptContext);
+
+            Js::TypeId typeLeft = JavascriptOperators::GetTypeId(aLeftToPrim);
+            Js::TypeId typeRight = JavascriptOperators::GetTypeId(aRightToPrim);
+
+            if (typeLeft == TypeIds_BigInt || typeRight == TypeIds_BigInt)
+            {
+                if (typeRight != typeLeft)
+                {
+                    JavascriptError::ThrowTypeError(scriptContext, VBSERR_TypeMismatch, _u("Subtract BigInt"));
+                }
+                return JavascriptBigInt::Sub(aLeftToPrim, aRightToPrim);
+            }
+
+            double difference = Subtract_Helper(aLeftToPrim, aRightToPrim, scriptContext);
             return JavascriptNumber::ToVarIntCheck(difference, scriptContext);
             JIT_HELPER_END(Op_Subtract_Full);
         }
@@ -800,7 +861,23 @@ StringCommon:
         Var JavascriptMath::Subtract_InPlace(Var aLeft, Var aRight, ScriptContext* scriptContext, JavascriptNumber* result)
         {
             JIT_HELPER_REENTRANT_HEADER(Op_SubtractInPlace);
-            double difference = Subtract_Helper(aLeft, aRight, scriptContext);
+
+            Var aLeftToPrim = JavascriptConversion::ToPrimitive<JavascriptHint::HintNumber>(aLeft, scriptContext);
+            Var aRightToPrim = JavascriptConversion::ToPrimitive<JavascriptHint::HintNumber>(aRight, scriptContext);
+
+            Js::TypeId typeLeft = JavascriptOperators::GetTypeId(aLeftToPrim);
+            Js::TypeId typeRight = JavascriptOperators::GetTypeId(aRightToPrim);
+
+            if (typeLeft == TypeIds_BigInt || typeRight == TypeIds_BigInt)
+            {
+                if (typeRight != typeLeft)
+                {
+                    JavascriptError::ThrowTypeError(scriptContext, VBSERR_TypeMismatch, _u("Subtract BigInt"));
+                }
+                return JavascriptBigInt::Sub(aLeftToPrim, aRightToPrim);
+            }
+
+            double difference = Subtract_Helper(aLeftToPrim, aRightToPrim, scriptContext);
             return JavascriptNumber::InPlaceNew(difference, scriptContext, result);
             JIT_HELPER_END(Op_SubtractInPlace);
         }
@@ -993,7 +1070,7 @@ StringCommon:
             TypeId typeId = JavascriptOperators::GetTypeId(arrayArg);
             if (!JavascriptNativeArray::Is(typeId) && !(TypedArrayBase::Is(typeId) && typeId != TypeIds_CharArray && typeId != TypeIds_BoolArray))
             {
-                if (JavascriptArray::IsVarArray(typeId) && JavascriptArray::UnsafeFromVar(arrayArg)->GetLength() == 0)
+                if (JavascriptArray::IsVarArray(typeId) && UnsafeVarTo<JavascriptArray>(arrayArg)->GetLength() == 0)
                 {
                     return scriptContext->GetLibrary()->GetNegativeInfinite();
                 }
@@ -1010,7 +1087,7 @@ StringCommon:
 #if ENABLE_COPYONACCESS_ARRAY
                 JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(arrayArg);
 #endif
-                JavascriptNativeArray * argsArray = JavascriptNativeArray::UnsafeFromVar(arrayArg);
+                JavascriptNativeArray * argsArray = UnsafeVarTo<JavascriptNativeArray>(arrayArg);
                 uint len = argsArray->GetLength();
                 if (len == 0)
                 {
@@ -1031,7 +1108,7 @@ StringCommon:
             }
             else
             {
-                TypedArrayBase * argsArray = TypedArrayBase::UnsafeFromVar(arrayArg);
+                TypedArrayBase * argsArray = UnsafeVarTo<TypedArrayBase>(arrayArg);
                 uint len = argsArray->GetLength();
                 if (len == 0)
                 {
@@ -1066,7 +1143,7 @@ StringCommon:
             TypeId typeId = JavascriptOperators::GetTypeId(arrayArg);
             if (!JavascriptNativeArray::Is(typeId) && !(TypedArrayBase::Is(typeId) && typeId != TypeIds_CharArray && typeId != TypeIds_BoolArray))
             {
-                if (JavascriptArray::Is(typeId) && JavascriptArray::UnsafeFromVar(arrayArg)->GetLength() == 0)
+                if (JavascriptArray::IsNonES5Array(typeId) && UnsafeVarTo<JavascriptArray>(arrayArg)->GetLength() == 0)
                 {
                     return scriptContext->GetLibrary()->GetPositiveInfinite();
                 }
@@ -1083,7 +1160,7 @@ StringCommon:
 #if ENABLE_COPYONACCESS_ARRAY
                 JavascriptLibrary::CheckAndConvertCopyOnAccessNativeIntArray<Var>(arrayArg);
 #endif
-                JavascriptNativeArray * argsArray = JavascriptNativeArray::UnsafeFromVar(arrayArg);
+                JavascriptNativeArray * argsArray = UnsafeVarTo<JavascriptNativeArray>(arrayArg);
                 uint len = argsArray->GetLength();
                 if (len == 0)
                 {
@@ -1104,7 +1181,7 @@ StringCommon:
             }
             else
             {
-                TypedArrayBase * argsArray = TypedArrayBase::UnsafeFromVar(arrayArg);
+                TypedArrayBase * argsArray = UnsafeVarTo<TypedArrayBase>(arrayArg);
                 uint len = argsArray->GetLength();
                 if (len == 0)
                 {

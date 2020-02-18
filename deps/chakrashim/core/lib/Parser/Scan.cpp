@@ -193,16 +193,13 @@ void Scanner<EncodingPolicy>::PrepareForBackgroundParse(Js::ScriptContext *scrip
 // This is used to determine a length of BSTR, which can't contain a NUL character.
 //-----------------------------------------------------------------------------
 template <typename EncodingPolicy>
-charcount_t Scanner<EncodingPolicy>::LineLength(EncodedCharPtr first, EncodedCharPtr last, size_t* cb)
+charcount_t Scanner<EncodingPolicy>::LineLength(EncodedCharPtr first, EncodedCharPtr last)
 {
-    Assert(cb != nullptr);
-
     charcount_t result = 0;
     EncodedCharPtr p = first;
 
     for (;;)
     {
-        EncodedCharPtr prev = p;
         switch( this->template ReadFull<false>(p, last) )
         {
             case kchNWL: // _C_NWL
@@ -210,13 +207,6 @@ charcount_t Scanner<EncodingPolicy>::LineLength(EncodedCharPtr first, EncodedCha
             case kchLS:
             case kchPS:
             case kchNUL: // _C_NUL
-                // p is now advanced past the line terminator character.
-                // We need to know the number of bytes making up the line, not including the line terminator character.
-                // To avoid subtracting a variable number of bytes because the line terminator characters are different
-                // number of bytes long (plus there may be multiple valid encodings for these characters) just keep
-                // track of the first byte of the line terminator character in prev.
-                Assert(prev >= first);
-                *cb = prev - first;
                 return result;
         }
         result++;
@@ -597,12 +587,12 @@ IdentPtr Scanner<EncodingPolicy>::PidOfIdentiferAt(EncodedCharPtr p, EncodedChar
 }
 
 template <typename EncodingPolicy>
-typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanNumber(EncodedCharPtr p, double *pdbl, bool& likelyInt)
+typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanNumber(EncodedCharPtr p, double *pdbl, LikelyNumberType& likelyType, size_t savedMultiUnits)
 {
     EncodedCharPtr last = m_pchLast;
     EncodedCharPtr pchT = nullptr;
     bool baseSpecified = false;
-    likelyInt = true;
+    likelyType = LikelyNumberType::Int;
     // Reset
     m_OctOrLeadingZeroOnLastTKNumber = false;
 
@@ -627,7 +617,8 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
         case '.':
         case 'e':
         case 'E':
-            likelyInt = false;
+        case 'n':
+            likelyType = LikelyNumberType::Double;
             // Floating point
             goto LFloat;
 
@@ -678,8 +669,12 @@ typename Scanner<EncodingPolicy>::EncodedCharPtr Scanner<EncodingPolicy>::FScanN
     else
     {
 LFloat:
-        *pdbl = Js::NumberUtilities::StrToDbl(p, &pchT, likelyInt);
+        *pdbl = Js::NumberUtilities::StrToDbl(p, &pchT, likelyType, m_scriptContext->GetConfig()->IsESBigIntEnabled());
         Assert(pchT == p || !Js::NumberUtilities::IsNan(*pdbl));
+        if (likelyType == LikelyNumberType::BigInt)
+        {
+            Assert(*pdbl == 0);
+        }
         // fall through to LIdCheck
     }
 
@@ -696,6 +691,7 @@ LIdCheck:
     }
     if (this->charClassifier->IsIdStart(outChar))
     {
+        this->RestoreMultiUnits(savedMultiUnits);
         Error(ERRIdAfterLit);
     }
 
@@ -705,12 +701,14 @@ LIdCheck:
         startingLocation++; // TryReadEscape expects us to point to the 'u', and since it is by reference we need to do it beforehand.
         if (TryReadEscape(startingLocation, m_pchLast, &outChar))
         {
+            this->RestoreMultiUnits(savedMultiUnits);
             Error(ERRIdAfterLit);
         }
     }
 
     if (Js::NumberUtilities::IsDigit(*startingLocation))
     {
+        this->RestoreMultiUnits(savedMultiUnits);
         Error(ERRbadNumber);
     }
 
@@ -1597,6 +1595,7 @@ tokens Scanner<EncodingPolicy>::ScanCore(bool identifyKwds)
     m_tkPrevious = m_ptoken->tk;
     m_iecpLimTokPrevious = IecpLimTok();    // Introduced for use by lambda parsing to find correct span of expression lambdas
     m_ichLimTokPrevious = IchLimTok();
+    size_t savedMultiUnits = this->m_cMultiUnits;
 
     if (p >= last)
     {
@@ -1729,19 +1728,28 @@ LEof:
                 Assert(chType == _C_DIG || chType == _C_DOT);
                 p = m_pchMinTok;
                 this->RestoreMultiUnits(m_cMinTokMultiUnits);
-                bool likelyInt = true;
-                pchT = FScanNumber(p, &dbl, likelyInt);
+                LikelyNumberType likelyType = LikelyNumberType::Int;
+                pchT = FScanNumber(p, &dbl, likelyType, savedMultiUnits);
                 if (p == pchT)
                 {
+                    this->RestoreMultiUnits(savedMultiUnits);
                     Assert(this->PeekFirst(p, last) != '.');
                     Error(ERRbadNumber);
                 }
                 Assert(!Js::NumberUtilities::IsNan(dbl));
-
+                if (likelyType == LikelyNumberType::BigInt)
+                {
+                    Assert(m_scriptContext->GetConfig()->IsESBigIntEnabled());
+                    AssertOrFailFast(pchT - p < UINT_MAX);
+                    token = tkBigIntCon;
+                    m_ptoken->SetBigInt(this->GetHashTbl()->PidHashNameLen(p, pchT, (uint32) (pchT - p)));
+                    p = pchT;
+                    break;
+                }
                 p = pchT;
 
                 int32 value;
-                if (likelyInt && Js::NumberUtilities::FDblIsInt32(dbl, &value))
+                if ((likelyType == LikelyNumberType::Int) && Js::NumberUtilities::FDblIsInt32(dbl, &value))
                 {
                     m_ptoken->SetLong(value);
                     token = tkIntCon;
@@ -1749,7 +1757,7 @@ LEof:
                 else
                 {
                     token = tkFltCon;
-                    m_ptoken->SetDouble(dbl, likelyInt);
+                    m_ptoken->SetDouble(dbl, likelyType == LikelyNumberType::Int);
                 }
 
                 break;
@@ -2323,11 +2331,10 @@ HRESULT Scanner<EncodingPolicy>::SysAllocErrorLine(int32 ichMinLine, __out BSTR*
     typename EncodingPolicy::EncodedCharPtr pStart = static_cast<size_t>(ichMinLine) == IchMinLine() ? m_pchMinLine : m_pchBase + this->CharacterOffsetToUnitOffset(m_pchBase, m_currentCharacter, m_pchLast, ichMinLine);
 
     // Determine the length by scanning for the next newline
-    size_t cb = 0;
-    charcount_t cch = LineLength(pStart, m_pchLast, &cb);
+    charcount_t cch = LineLength(pStart, m_pchLast);
     Assert(cch <= LONG_MAX);
 
-    typename EncodingPolicy::EncodedCharPtr pEnd = static_cast<size_t>(ichMinLine) == IchMinLine() ? m_pchMinLine + cb : m_pchBase + this->CharacterOffsetToUnitOffset(m_pchBase, m_currentCharacter, m_pchLast, cch);
+    typename EncodingPolicy::EncodedCharPtr pEnd = static_cast<size_t>(ichMinLine) == IchMinLine() ? m_pchMinLine + cch : m_pchBase + this->CharacterOffsetToUnitOffset(m_pchBase, m_currentCharacter, m_pchLast, cch);
 
     *pbstrLine = SysAllocStringLen(NULL, cch);
     if (!*pbstrLine)

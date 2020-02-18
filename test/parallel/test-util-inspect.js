@@ -1390,14 +1390,8 @@ util.inspect(process);
   expect = [
     '{',
     '  a: [Function] {',
-    common.engineSpecificMessage({
-      v8: '    [length]: 0,',
-      chakracore: "    [name]: '',",
-    }),
-    common.engineSpecificMessage({
-      v8: "    [name]: ''",
-      chakracore: '    [length]: 0',
-    }),
+    '    [length]: 0,',
+    "    [name]: ''",
     '  },',
     '  b: [Number: 3]',
     '}'

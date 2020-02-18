@@ -71,8 +71,7 @@ public:
 
 #if PDATA_ENABLED
     XDataAllocation* GetXDataInfo() { return this->xdataInfo; }
-    void CleanupXDataInfo();
-    void SetXDataInfo(XDataAllocation* xdataInfo) { this->xdataInfo = xdataInfo; }
+    void SetXDataInfo(XDataAllocation* xdataInfo) { this->xdataInfo = xdataInfo; }   
 #endif
 private:
     void RegisterEquivalentTypeCaches(Js::ScriptContext * scriptContext, Js::EntryPointInfo * entryPointInfo);
@@ -80,6 +79,9 @@ private:
     void FreePropertyGuards();
 
     void FreeNativeCode(Js::ScriptContext * scriptContext, bool isShutdown);
+#if PDATA_ENABLED
+    void CleanupXDataInfo();
+#endif
 
     FieldNoBarrier(Js::JavascriptMethod) nativeAddress;
     FieldNoBarrier(Js::JavascriptMethod) thunkAddress;

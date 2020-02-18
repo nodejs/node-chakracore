@@ -151,6 +151,16 @@ bool GlobOpt::ArraySrcOpt::CheckOpCode()
                 return false;
             }
 
+            if (instr->GetSrc1()->IsAddrOpnd())
+            {
+                const Js::Var val = instr->GetSrc1()->AsAddrOpnd()->m_address;
+                if (Js::TaggedInt::Is(val))
+                {
+                    originalIndexOpnd = instr->UnlinkSrc1();
+                    instr->SetSrc1(IR::IntConstOpnd::New(Js::TaggedInt::ToInt32(val), TyInt32, instr->m_func));
+                }
+            }
+
             if (!instr->GetSrc1()->IsRegOpnd() && !instr->GetSrc1()->IsIntConstOpnd())
             {
                 return false;
@@ -199,7 +209,7 @@ void GlobOpt::ArraySrcOpt::TypeSpecIndex()
         {
             // If the optimization is unable to eliminate the bounds checks, we need to restore the original var sym.
             Assert(originalIndexOpnd == nullptr);
-            originalIndexOpnd = instr->GetSrc1()->Copy(func)->AsRegOpnd();
+            originalIndexOpnd = instr->GetSrc1()->Copy(func);
             globOpt->ToTypeSpecIndex(instr, instr->GetSrc1()->AsRegOpnd(), nullptr);
         }
     }
@@ -1736,14 +1746,7 @@ void GlobOpt::ArraySrcOpt::Optimize()
     {
         if (newBaseValueType != baseValueType)
         {
-            if (globOpt->IsSafeToTransferInPrePass(baseOpnd, baseValue))
-            {
-                UpdateValue(nullptr, nullptr, nullptr);
-            }
-            else if (isLikelyJsArray && globOpt->IsOperationThatLikelyKillsJsArraysWithNoMissingValues(instr) && baseValueInfo->HasNoMissingValues())
-            {
-                globOpt->ChangeValueType(nullptr, baseValue, baseValueInfo->Type().SetHasNoMissingValues(false), true);
-            }
+            UpdateValue(nullptr, nullptr, nullptr);
         }
 
         // For javascript arrays and objects with javascript arrays:
@@ -1929,7 +1932,32 @@ void GlobOpt::ArraySrcOpt::Optimize()
         baseArrayOpnd = nullptr;
     }
 
-    globOpt->ProcessNoImplicitCallArrayUses(baseOpnd, baseArrayOpnd, instr, isLikelyJsArray, isLoad || isStore || instr->m_opcode == Js::OpCode::IsIn);
+    if (isLikelyJsArray)
+    {
+        // Insert an instruction to indicate to the dead-store pass that implicit calls need to be kept disabled until this
+        // instruction. Operations other than LdElem, StElem and IsIn don't benefit much from arrays having no missing values,
+        // so no need to ensure that the array still has no missing values. For a particular array, if none of the accesses
+        // benefit much from the no-missing-values information, it may be beneficial to avoid checking for no missing
+        // values, especially in the case for a single array access, where the cost of the check could be relatively
+        // significant. An StElem has to do additional checks in the common path if the array may have missing values, and
+        // a StElem that operates on an array that has no missing values is more likely to keep the no-missing-values info
+        // on the array more precise, so it still benefits a little from the no-missing-values info.
+        globOpt->CaptureNoImplicitCallUses(baseOpnd, isLoad || isStore || instr->m_opcode == Js::OpCode::IsIn);
+    }
+    else if (baseArrayOpnd && baseArrayOpnd->HeadSegmentLengthSym())
+    {
+        // A typed array's array buffer may be transferred to a web worker as part of an implicit call, in which case the typed
+        // array's length is set to zero. Insert an instruction to indicate to the dead-store pass that implicit calls need to
+        // be disabled until this instruction.
+        IR::RegOpnd *const headSegmentLengthOpnd =
+            IR::RegOpnd::New(
+                baseArrayOpnd->HeadSegmentLengthSym(),
+                baseArrayOpnd->HeadSegmentLengthSym()->GetType(),
+                instr->m_func);
+
+        const IR::AutoReuseOpnd autoReuseHeadSegmentLengthOpnd(headSegmentLengthOpnd, instr->m_func);
+        globOpt->CaptureNoImplicitCallUses(headSegmentLengthOpnd, false);
+    }
 
     const auto OnEliminated = [&](const Js::Phase phase, const char *const eliminatedLoad)
     {

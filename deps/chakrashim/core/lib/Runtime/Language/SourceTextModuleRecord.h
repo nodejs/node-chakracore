@@ -50,11 +50,11 @@ namespace Js
 
         void SetSpecifier(Var specifier) { this->normalizedSpecifier = specifier; }
         Var GetSpecifier() const { return normalizedSpecifier; }
-        const char16 *GetSpecifierSz() const { return JavascriptString::FromVar(this->normalizedSpecifier)->GetSz(); }
+        const char16 *GetSpecifierSz() const { return VarTo<JavascriptString>(this->normalizedSpecifier)->GetSz(); }
 
         void SetModuleUrl(Var moduleUrl) { this->moduleUrl = moduleUrl; }
         Var GetModuleUrl() const { return moduleUrl;}
-        const char16 *GetModuleUrlSz() const { return JavascriptString::FromVar(this->moduleUrl)->GetSz(); }
+        const char16 *GetModuleUrlSz() const { return VarTo<JavascriptString>(this->moduleUrl)->GetSz(); }
 
         Var GetErrorObject() const { return errorObject; }
 
@@ -108,7 +108,7 @@ namespace Js
 
         void SetParent(SourceTextModuleRecord* parentRecord, LPCOLESTR moduleName);
         Utf8SourceInfo* GetSourceInfo() { return this->pSourceInfo; }
-        static Var ResolveOrRejectDynamicImportPromise(bool isResolve, Var value, ScriptContext *scriptContext, SourceTextModuleRecord *mr = nullptr);
+        static Var ResolveOrRejectDynamicImportPromise(bool isResolve, Var value, ScriptContext *scriptContext, SourceTextModuleRecord *mr = nullptr, bool useReturn = true);
         Var PostProcessDynamicModuleImport();
 
     private:

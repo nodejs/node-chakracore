@@ -5,11 +5,19 @@
 #pragma once
 #include <list>
 
+enum ModuleState
+{
+    RootModule,
+    ImportedModule,
+    ErroredModule
+};
+
 class WScriptJsrt
 {
 public:
     static bool Initialize();
     static bool Uninitialize();
+    static JsErrorCode ModuleEntryPoint(LPCSTR fileName, LPCSTR fileContent, LPCSTR fullName);
 
     class CallbackMessage : public MessageBase
     {
@@ -35,17 +43,18 @@ public:
     private:
         JsModuleRecord moduleRecord;
         JsValueRef specifier;
+        std::string* fullPath;
 
-        ModuleMessage(JsModuleRecord module, JsValueRef specifier);
+        ModuleMessage(JsModuleRecord module, JsValueRef specifier, std::string* fullPathPtr);
 
     public:
         ~ModuleMessage();
 
         virtual HRESULT Call(LPCSTR fileName) override;
 
-        static ModuleMessage* Create(JsModuleRecord module, JsValueRef specifier)
+        static ModuleMessage* Create(JsModuleRecord module, JsValueRef specifier, std::string* fullPath = nullptr)
         {
-            return new ModuleMessage(module, specifier);
+            return new ModuleMessage(module, specifier, fullPath);
         }
 
     };
@@ -139,5 +148,6 @@ private:
     static DWORD_PTR sourceContext;
     static std::map<std::string, JsModuleRecord> moduleRecordMap;
     static std::map<JsModuleRecord, std::string> moduleDirMap;
+    static std::map<JsModuleRecord, ModuleState> moduleErrMap;
     static std::map<DWORD_PTR, std::string> scriptDirMap;
 };

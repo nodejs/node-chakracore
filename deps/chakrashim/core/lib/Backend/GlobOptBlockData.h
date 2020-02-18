@@ -20,7 +20,7 @@ public:
     }
 
 private:
-    static const uint32 BitMask(const uint index)
+    static uint32 BitMask(const uint index)
     {
         return 1u << index;
     }
@@ -264,7 +264,7 @@ private:
     Value *                 MergeValues(Value *toDataValue, Value *fromDataValue, Sym *fromDataSym, bool isLoopBackEdge, BVSparse<JitArenaAllocator> *const symsRequiringCompensation, BVSparse<JitArenaAllocator> *const symsCreatedForMerge);
     ValueInfo *             MergeValueInfo(Value *toDataVal, Value *fromDataVal, Sym *fromDataSym, bool isLoopBackEdge, bool sameValueNumber, BVSparse<JitArenaAllocator> *const symsRequiringCompensation, BVSparse<JitArenaAllocator> *const symsCreatedForMerge);
     JsTypeValueInfo *       MergeJsTypeValueInfo(JsTypeValueInfo * toValueInfo, JsTypeValueInfo * fromValueInfo, bool isLoopBackEdge, bool sameValueNumber);
-    ValueInfo *             MergeArrayValueInfo(const ValueType mergedValueType, const ArrayValueInfo *const toDataValueInfo, const ArrayValueInfo *const fromDataValueInfo, Sym *const arraySym, BVSparse<JitArenaAllocator> *const symsRequiringCompensation, BVSparse<JitArenaAllocator> *const symsCreatedForMerge, bool isLoopBackEdge);
+    ValueInfo *             MergeArrayValueInfo(const ValueType mergedValueType, const ArrayValueInfo *const toDataValueInfo, const ArrayValueInfo *const fromDataValueInfo, Sym *const arraySym, BVSparse<JitArenaAllocator> *const symsRequiringCompensation, BVSparse<JitArenaAllocator> *const symsCreatedForMerge);
 
     // Argument Tracking
 public:

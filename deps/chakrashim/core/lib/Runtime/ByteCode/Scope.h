@@ -110,18 +110,6 @@ public:
         }
     }
 
-    static bool HasSymbolName(Scope * scope, const JsUtil::CharacterBuffer<WCHAR>& name)
-    {
-        for (Symbol *sym = scope->m_symList; sym; sym = sym->GetNext())
-        {
-            if (sym->GetName() == name)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     void AddSymbol(Symbol *sym)
     {
         if (enclosingScope == nullptr)
@@ -129,9 +117,12 @@ public:
             sym->SetIsGlobal(true);
         }
         sym->SetScope(this);
-        if (HasSymbolName(this, sym->GetName()))
+        for (Symbol *symInList = m_symList; symInList; symInList = symInList->GetNext())
         {
-            return;
+            if (symInList->GetName() == sym->GetName())
+            {
+                return;
+            }
         }
         sym->SetNext(m_symList);
         m_symList = sym;
@@ -145,7 +136,6 @@ public:
             sym->SetIsGlobal(true);
         }
         sym->SetScope(this);
-        Assert(!HasSymbolName(this, sym->GetName()));
         sym->SetNext(m_symList);
         m_symList = sym;
         m_count++;

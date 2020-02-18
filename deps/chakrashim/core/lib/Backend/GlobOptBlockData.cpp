@@ -660,7 +660,7 @@ GlobOptBlockData::MergeBlockData(
     {
         if (!this->argObjSyms->Equal(fromData->argObjSyms))
         {
-            this->globOpt->CannotAllocateArgumentsObjectOnStack();
+            this->globOpt->CannotAllocateArgumentsObjectOnStack(nullptr);
         }
     }
 
@@ -974,8 +974,7 @@ GlobOptBlockData::MergeValueInfo(
                 fromDataValueInfo->AsArrayValueInfo(),
                 fromDataSym,
                 symsRequiringCompensation,
-                symsCreatedForMerge,
-                isLoopBackEdge);
+                symsCreatedForMerge);
     }
 
     // Consider: If both values are VarConstantValueInfo with the same value, we could
@@ -1073,8 +1072,7 @@ ValueInfo *GlobOptBlockData::MergeArrayValueInfo(
     const ArrayValueInfo *const fromDataValueInfo,
     Sym *const arraySym,
     BVSparse<JitArenaAllocator> *const symsRequiringCompensation,
-    BVSparse<JitArenaAllocator> *const symsCreatedForMerge,
-    bool isLoopBackEdge)
+    BVSparse<JitArenaAllocator> *const symsCreatedForMerge)
 {
     Assert(mergedValueType.IsAnyOptimizedArray());
     Assert(toDataValueInfo);
@@ -1097,7 +1095,7 @@ ValueInfo *GlobOptBlockData::MergeArrayValueInfo(
         }
         else
         {
-            if (!this->globOpt->IsLoopPrePass() && !isLoopBackEdge)
+            if (!this->globOpt->IsLoopPrePass())
             {
                 // Adding compensation code in the prepass won't help, as the symstores would again be different in the main pass.
                 Assert(symsRequiringCompensation);
@@ -1125,7 +1123,7 @@ ValueInfo *GlobOptBlockData::MergeArrayValueInfo(
         }
         else
         {
-            if (!this->globOpt->IsLoopPrePass() && !isLoopBackEdge)
+            if (!this->globOpt->IsLoopPrePass())
             {
                 Assert(symsRequiringCompensation);
                 symsRequiringCompensation->Set(arraySym->m_id);
@@ -1152,7 +1150,7 @@ ValueInfo *GlobOptBlockData::MergeArrayValueInfo(
         }
         else
         {
-            if (!this->globOpt->IsLoopPrePass() && !isLoopBackEdge)
+            if (!this->globOpt->IsLoopPrePass())
             {
                 Assert(symsRequiringCompensation);
                 symsRequiringCompensation->Set(arraySym->m_id);

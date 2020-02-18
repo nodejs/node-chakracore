@@ -40,12 +40,7 @@
 #include "ByteCode/ByteCodeSerializer.h"
 #include "Language/SimpleDataCacheWrapper.h"
 #include "Core/CRC.h"
-
-#ifdef _M_IX86
-#ifdef _CONTROL_FLOW_GUARD
-extern "C" PVOID __guard_check_icall_fptr;
-#endif
-#endif
+#include "Common/CompressionUtilities.h"
 
 namespace Js
 {
@@ -1491,11 +1486,6 @@ namespace Js
         this->GetThreadContext()->RegisterScriptContext(this);
     }
 
-    bool ScriptContext::ExceedsStackNestedFuncCount(uint count)
-    {
-        return count >= (InterpreterStackFrame::LocalsThreshold / (sizeof(StackScriptFunction) / sizeof(Var)));
-    }
-
 #ifdef ENABLE_SCRIPT_DEBUGGING
     ArenaAllocator* ScriptContext::AllocatorForDiagnostics()
     {
@@ -2182,28 +2172,72 @@ namespace Js
         }
 
         // The block includes a 4-byte CRC before the parser state cache.
-        ULONG byteCount = blockByteCount - sizeof(uint);
+        ULONG compressedBufferByteCount = blockByteCount - sizeof(uint);
 
         // The contract for this bytecode buffer is that it is available as long as we have this ScriptContext.
         // We will use this buffer as the string table needed to back the deferred stubs as well as bytecode
         // for defer deserialized functions.
         // TODO: This, better.
         ArenaAllocator* alloc = this->SourceCodeAllocator();
-        byte* buffer = AnewArray(alloc, byte, byteCount);
+        size_t decompressedBufferByteCount = 0;
+        byte* decompressedBuffer = nullptr;
 
-        if (buffer == nullptr)
+        if (CONFIG_FLAG(CompressParserStateCache))
         {
-            return E_FAIL;
+            BEGIN_TEMP_ALLOCATOR(tempAllocator, this, _u("ByteCodeSerializer"));
+            {
+                byte* compressedBuffer = AnewNoThrowArray(tempAllocator, byte, compressedBufferByteCount);
+                if (compressedBuffer == nullptr)
+                {
+                    hr = E_FAIL;
+                    goto ExitTempAllocator;
+                }
+
+                hr = pDataCache->ReadArray(compressedBuffer, compressedBufferByteCount);
+                if (FAILED(hr))
+                {
+                    OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to read compressed parser state cache (wanted %lu bytes) (hr = 0x%08lx) for '%s'\n"), compressedBufferByteCount, hr, url);
+                    goto ExitTempAllocator;
+                }
+
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Successfully read compressed parser state cache (%lu bytes) for '%s'\n"), compressedBufferByteCount, url);
+
+                hr = Js::CompressionUtilities::DecompressBuffer(alloc, compressedBuffer, compressedBufferByteCount, &decompressedBuffer, &decompressedBufferByteCount);
+                if (FAILED(hr))
+                {
+                    OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to decompress parser state cache (hr = 0x%08lx) for '%s'\n"), hr, url);
+                    goto ExitTempAllocator;
+                }
+
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Decompressed parser state cache %lu -> %lu bytes (%.2f%%) to stream for '%s'\n"), compressedBufferByteCount, decompressedBufferByteCount, (double)compressedBufferByteCount / decompressedBufferByteCount * 100.0, url);
+            }
+ExitTempAllocator:
+            END_TEMP_ALLOCATOR(tempAllocator, this);
+
+            if (FAILED(hr))
+            {
+                goto Error;
+            }
+        }
+        else
+        {
+            // We didn't compress the parser state cache so don't decompress it, just read the buffer.
+            decompressedBuffer = AnewNoThrowArray(alloc, byte, compressedBufferByteCount);
+            decompressedBufferByteCount = compressedBufferByteCount;
+            if (decompressedBuffer == nullptr)
+            {
+                return E_FAIL;
+            }
+
+            hr = pDataCache->ReadArray(decompressedBuffer, compressedBufferByteCount);
+            if (FAILED(hr))
+            {
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to read parser state cache (wanted %lu bytes) (hr = 0x%08lx) for '%s'\n"), decompressedBufferByteCount, hr, url);
+                goto Error;
+            }
         }
 
-        hr = pDataCache->ReadArray(buffer, byteCount);
-        if (FAILED(hr))
-        {
-            OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to read parser state cache (wanted %lu bytes, got %lu bytes) (hr = 0x%08lx) for '%s'\n"), byteCount, pDataCache->BytesWrittenInBlock(), hr, url);
-            return hr;
-        }
-
-        OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Successfully read parser state cache (%lu bytes) for '%s'\n"), byteCount, url);
+        OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Successfully read parser state cache (%lu bytes) for '%s'\n"), decompressedBufferByteCount, url);
 
         if (utf8SourceInfo != nullptr)
         {
@@ -2221,21 +2255,24 @@ namespace Js
         OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Trying to deserialize parser state cache for '%s'\n"), url);
 
         FunctionBody* functionBody = nullptr;
-        hr = Js::ByteCodeSerializer::DeserializeFromBuffer(this, grfscr, (ISourceHolder*) nullptr, srcInfo, buffer, nativeModule, &functionBody, sourceIndex);
+        hr = Js::ByteCodeSerializer::DeserializeFromBuffer(this, grfscr, (ISourceHolder*) nullptr, srcInfo, decompressedBuffer, nativeModule, &functionBody, sourceIndex);
 
         if (FAILED(hr))
         {
-            AdeleteArray(alloc, byteCount, buffer);
-
             OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to deserialize parser state cache (hr = 0x%08lx) for '%s'\n"), hr, url);
-            return hr;
+            goto Error;
         }
 
         OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Successfully deserialized parser state cache for '%s'\n"), url);
 
         *func = functionBody->GetParseableFunctionInfo();
-        *parserStateCacheBuffer = buffer;
-        *parserStateCacheByteCount = byteCount;
+        *parserStateCacheBuffer = decompressedBuffer;
+        *parserStateCacheByteCount = (DWORD)decompressedBufferByteCount;
+Error:
+        if (FAILED(hr) && decompressedBuffer != nullptr)
+        {
+            AdeleteArray(alloc, decompressedBufferByteCount, decompressedBuffer);
+        }
 #endif
 
         return hr;
@@ -2293,29 +2330,61 @@ namespace Js
 
         OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Trying to write parser state cache (%lu bytes) to stream for '%s'\n"), serializeParserStateCacheSize, url);
 
-        hr = pDataCache->StartBlock(Js::SimpleDataCacheWrapper::BlockType_ParserState, serializeParserStateCacheSize + sizeof(uint));
-
-        if (FAILED(hr))
+        BEGIN_TEMP_ALLOCATOR(tempAllocator, this, _u("ByteCodeSerializer"));
         {
-            OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write a block to the parser state cache data stream (hr = 0x%08lx) for '%s'\n"), hr, url);
-            return hr;
+            byte* compressedBuffer = nullptr;
+            size_t compressedSize = 0;
+
+            if (CONFIG_FLAG(CompressParserStateCache))
+            {
+                hr = Js::CompressionUtilities::CompressBuffer(tempAllocator, serializeParserStateCacheBuffer, serializeParserStateCacheSize, &compressedBuffer, &compressedSize);
+
+                if (FAILED(hr))
+                {
+                    OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to compress parser state cache (hr = 0x%08lx) for '%s'\n"), hr, url);
+                    goto ExitTempAllocator;
+                }
+
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Compressed parser state cache %lu -> %lu bytes (%.2f%%) to stream for '%s'\n"), serializeParserStateCacheSize, compressedSize, (double)compressedSize / serializeParserStateCacheSize * 100.0, url);
+            }
+            else
+            {
+                // Don't compress, just pass through the parser state cache buffer
+                compressedBuffer = serializeParserStateCacheBuffer;
+                compressedSize = serializeParserStateCacheSize;
+            }
+
+            hr = pDataCache->StartBlock(Js::SimpleDataCacheWrapper::BlockType_ParserState, (ULONG)compressedSize + sizeof(uint));
+
+            if (FAILED(hr))
+            {
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write a block to the parser state cache data stream (hr = 0x%08lx) for '%s'\n"), hr, url);
+                goto ExitTempAllocator;
+            }
+
+            OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Computed CRC value = 0x%08lx for '%s'\n"), sourceCRC, url);
+
+            hr = pDataCache->Write(sourceCRC);
+
+            if (FAILED(hr))
+            {
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write CRC data to the data stream (hr = 0x%08lx) for '%s'\n"), hr, url);
+                goto ExitTempAllocator;
+            }
+
+            hr = pDataCache->WriteArray(compressedBuffer, (ULONG)compressedSize);
+
+            if (FAILED(hr))
+            {
+                OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write compressed parser state cache (hr = 0x%08lx) for '%s'\n"), hr, url);
+                goto ExitTempAllocator;
+            }
         }
-
-        hr = pDataCache->Write(sourceCRC);
-
-        OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Computed CRC value = 0x%08lx for '%s'\n"), sourceCRC, url);
+ExitTempAllocator:
+        END_TEMP_ALLOCATOR(tempAllocator, this);
 
         if (FAILED(hr))
         {
-            OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write CRC data to the data stream (hr = 0x%08lx) for '%s'\n"), hr, url);
-            return hr;
-        }
-
-        hr = pDataCache->WriteArray(serializeParserStateCacheBuffer, serializeParserStateCacheSize);
-
-        if (FAILED(hr))
-        {
-            OUTPUT_TRACE_DEBUGONLY(Js::DataCachePhase, _u(" Failed to write parser state cache (hr = 0x%08lx) for '%s'\n"), hr, url);
             return hr;
         }
 
@@ -2388,7 +2457,7 @@ namespace Js
                 hr = ps.ParseCesu8Source(&parseTree, pszSrc, cbLength, grfscr, pse, &sourceContextInfo->nextLocalFunctionId,
                     sourceContextInfo);
             }
-            
+
             utf8SourceInfo->SetParseFlags(grfscr);
             srcLength = ps.GetSourceLength();
 
@@ -3996,7 +4065,7 @@ namespace Js
                 scriptFunction->GetFunctionBody()->GetAsmJsFunctionInfo() != nullptr &&
                 scriptFunction->GetFunctionBody()->GetAsmJsFunctionInfo()->GetModuleFunctionBody() != nullptr)
             {
-                AsmJsScriptFunction* asmFunc = AsmJsScriptFunction::FromVar(scriptFunction);
+                AsmJsScriptFunction* asmFunc = VarTo<AsmJsScriptFunction>(scriptFunction);
                 void* env = (void*)asmFunc->GetModuleEnvironment();
                 SList<AsmJsScriptFunction*> * funcList = nullptr;
                 if (asmJsEnvironmentMap->TryGetValue(env, &funcList))
@@ -4084,9 +4153,9 @@ namespace Js
             pFunction->ResetConstructorCacheToDefault();
         }
 
-        if (ScriptFunctionWithInlineCache::Is(pFunction))
+        if (VarIs<ScriptFunctionWithInlineCache>(pFunction))
         {
-            ScriptFunctionWithInlineCache::FromVar(pFunction)->ClearInlineCacheOnFunctionObject();
+            VarTo<ScriptFunctionWithInlineCache>(pFunction)->ClearInlineCacheOnFunctionObject();
         }
 
         // We should have force parsed the function, and have a function body
@@ -4106,7 +4175,7 @@ namespace Js
 #endif
 
 #ifdef ASMJS_PLAT
-        ScriptFunction * scriptFunction = ScriptFunction::FromVar(pFunction);
+        ScriptFunction * scriptFunction = VarTo<ScriptFunction>(pFunction);
         scriptContext->TransitionEnvironmentForDebugger(scriptFunction);
 #endif
     }
@@ -4170,7 +4239,7 @@ namespace Js
             {
                 OUTPUT_TRACE(Js::ScriptProfilerPhase, _u("\t\tJs::ScriptContext::GetProfileModeThunk : 0x%08X\n"), (DWORD_PTR)Js::ScriptContext::GetProfileModeThunk(entryPoint));
 
-                ScriptFunction * scriptFunction = ScriptFunction::FromVar(pFunction);
+                ScriptFunction * scriptFunction = VarTo<ScriptFunction>(pFunction);
                 scriptFunction->ChangeEntryPoint(proxy->GetDefaultEntryPointInfo(), Js::ScriptContext::GetProfileModeThunk(entryPoint));
 
 #if ENABLE_NATIVE_CODEGEN && defined(ENABLE_SCRIPT_PROFILING)
@@ -4441,8 +4510,8 @@ namespace Js
 #if defined(ENABLE_SCRIPT_DEBUGGING) || defined(ENABLE_SCRIPT_PROFILING)
         RUNTIME_ARGUMENTS(args, callInfo);
 
-        Assert(!WasmScriptFunction::Is(callable));
-        JavascriptFunction* function = JavascriptFunction::FromVar(callable);
+        Assert(!VarIs<WasmScriptFunction>(callable));
+        JavascriptFunction* function = VarTo<JavascriptFunction>(callable);
         ScriptContext* scriptContext = function->GetScriptContext();
 
         // We can come here when profiling is not on
@@ -4501,7 +4570,7 @@ namespace Js
                     else
                     {
                         // it is string because user had called in toString extract name from it
-                        Assert(JavascriptString::Is(sourceString));
+                        Assert(VarIs<JavascriptString>(sourceString));
                         const char16 *pwszToString = ((JavascriptString *)sourceString)->GetSz();
                         const char16 *pwszNameStart = wcsstr(pwszToString, _u(" "));
                         const char16 *pwszNameEnd = wcsstr(pwszToString, _u("("));
@@ -4955,7 +5024,7 @@ namespace Js
 
     void ScriptContext::RegisterIsInstInlineCache(Js::IsInstInlineCache * cache, Js::Var function)
     {
-        Assert(JavascriptFunction::FromVar(function)->GetScriptContext() == this);
+        Assert(VarTo<JavascriptFunction>(function)->GetScriptContext() == this);
         hasIsInstInlineCache = true;
 #if DBG
         this->isInstInlineCacheAllocator.Unlock();

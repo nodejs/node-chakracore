@@ -233,7 +233,7 @@ public:
     void SetIsInParsingArgList(bool set) { m_isInParsingArgList = set; }
 
     bool GetHasDestructuringPattern() const { return m_hasDestructuringPattern; }
-    void SetHasDestructuringPattern(bool set) { m_hasDestructuringPattern = set; }
+    void SetHasDestructuringPattern(bool set) { m_hasDestructuringPattern = set; }    
 
     ParseNode* CopyPnode(ParseNode* pnode);
 
@@ -272,6 +272,9 @@ public:
         SourceContextInfo * sourceContextInfo, Js::ParseableFunctionInfo* functionInfo);
 
 protected:
+    static uint BuildDeferredStubTreeHelper(ParseNodeBlock* pnodeBlock, DeferredFunctionStub* deferredStubs, uint currentStubIndex, uint deferredStubCount, Recycler *recycler);
+    void ShiftCurrDeferredStubToChildFunction(ParseNodeFnc* pnodeFnc, ParseNodeFnc* pnodeFncParent);
+
     HRESULT ParseSourceInternal(
         __out ParseNodeProg ** parseTree, LPCUTF8 pszSrc, size_t offsetInBytes,
         size_t lengthInCodePoints, charcount_t offsetInChars, bool isUtf8,
@@ -310,7 +313,8 @@ protected:
     Js::ScriptContext* m_scriptContext;
     HashTbl * GetHashTbl() { return this->GetScanner()->GetHashTbl(); }
 
-    __declspec(noreturn) void Error(HRESULT hr);
+    LPCWSTR GetTokenString(tokens token);
+    __declspec(noreturn) void Error(HRESULT hr, LPCWSTR stringOne = _u(""), LPCWSTR stringTwo = _u(""));
 private:
     __declspec(noreturn) void Error(HRESULT hr, ParseNodePtr pnode);
     __declspec(noreturn) void Error(HRESULT hr, charcount_t ichMin, charcount_t ichLim);
@@ -374,6 +378,7 @@ private:
 
     ParseNodeInt * CreateIntNode(int32 lw);
     ParseNodeStr * CreateStrNode(IdentPtr pid);
+    ParseNodeBigInt * CreateBigIntNode(IdentPtr pid);
     ParseNodeName * CreateNameNode(IdentPtr pid);
     ParseNodeName * CreateNameNode(IdentPtr pid, PidRefStack * ref, charcount_t ichMin, charcount_t ichLim);
     ParseNodeSpecialName * CreateSpecialNameNode(IdentPtr pid, PidRefStack * ref, charcount_t ichMin, charcount_t ichLim);
@@ -388,6 +393,8 @@ private:
 
     ParseNodeParamPattern * CreateParamPatternNode(ParseNodePtr pnode1);
     ParseNodeParamPattern * CreateDummyParamPatternNode(charcount_t ichMin);
+
+    ParseNodeObjLit * CreateObjectPatternNode(ParseNodePtr pnodeMemberList, charcount_t ichMin, charcount_t ichLim, bool convertToPattern=false);
 
     Symbol*      AddDeclForPid(ParseNodeVar * pnode, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl);
     void         CheckRedeclarationErrorForBlockId(IdentPtr pid, int blockId);
@@ -448,7 +455,7 @@ private:
     ParseNodePtr * m_ppnodeScope;  // function list tail
     ParseNodePtr * m_ppnodeExprScope; // function expression list tail
     ParseNodePtr * m_ppnodeVar;  // variable list tail
-    bool m_inDeferredNestedFunc; // true if parsing a function in deferred mode, nested within the current node
+    bool m_inDeferredNestedFunc; // true if parsing a function in deferred mode, nested within the current node  
     bool m_reparsingLambdaParams;
     bool m_disallowImportExportStmt;
     bool m_isInParsingArgList;
@@ -476,7 +483,6 @@ private:
         IdentPtr as;
         IdentPtr _default;
         IdentPtr _star; // Special '*' identifier for modules
-        IdentPtr _starDefaultStar; // Special '*default*' identifier for modules
         IdentPtr _this; // Special 'this' identifier
         IdentPtr _newTarget; // Special new.target identifier
         IdentPtr _super; // Special super identifier
@@ -638,6 +644,7 @@ protected:
     ModuleImportOrExportEntry* AddModuleImportOrExportEntry(ModuleImportOrExportEntryList* importOrExportEntryList, IdentPtr importName, IdentPtr localName, IdentPtr exportName, IdentPtr moduleRequest);
     ModuleImportOrExportEntry* AddModuleImportOrExportEntry(ModuleImportOrExportEntryList* importOrExportEntryList, ModuleImportOrExportEntry* importOrExportEntry);
     void AddModuleLocalExportEntry(ParseNodePtr varDeclNode);
+    void CheckForDuplicateExportEntry(IdentPtr exportName);
     void CheckForDuplicateExportEntry(ModuleImportOrExportEntryList* exportEntryList, IdentPtr exportName);
 
     ParseNodeVar * CreateModuleImportDeclNode(IdentPtr localName);
@@ -731,8 +738,15 @@ public:
         else
         {
             ForEachItemInList(patternNode->AsParseNodeUni()->pnode1, [&](ParseNodePtr item) {
-                Assert(item->nop == knopObjectPatternMember);
-                MapBindIdentifierFromElement(item->AsParseNodeBin()->pnode2, handler);
+                Assert(item->nop == knopObjectPatternMember || item->nop == knopEllipsis);
+                if (item->nop == knopObjectPatternMember)
+                {
+                    MapBindIdentifierFromElement(item->AsParseNodeBin()->pnode2, handler);
+                }
+                else
+                {
+                    MapBindIdentifierFromElement(item->AsParseNodeUni()->pnode1, handler);
+                }
             });
         }
     }
@@ -848,7 +862,7 @@ private:
     static MemberNameToTypeMap* CreateMemberNameMap(ArenaAllocator* pAllocator);
 
     template<bool buildAST> void ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint = nullptr, uint32 *pNameLength = nullptr, uint32 *pShortNameOffset = nullptr);
-    template<bool buildAST> ParseNodeBin * ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint);
+    template<bool buildAST> ParseNodeBin * ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint,size_t iecpMin, charcount_t ichMin);
     template<bool buildAST> ParseNode * ParseFncDeclCheckScope(ushort flags, bool fAllowIn = true);
     template<bool buildAST> ParseNodeFnc * ParseFncDeclNoCheckScope(ushort flags, SuperRestrictionState::State superRestrictionState = SuperRestrictionState::Disallowed, LPCOLESTR pNameHint = nullptr, const bool needsPIDOnRCurlyScan = false, bool fUnaryOrParen = false, bool fAllowIn = true);
     template<bool buildAST> ParseNodeFnc * ParseFncDeclInternal(ushort flags, LPCOLESTR pNameHint, const bool needsPIDOnRCurlyScan, bool fUnaryOrParen, bool noStmtContext, SuperRestrictionState::State superRestrictionState = SuperRestrictionState::Disallowed, bool fAllowIn = true);
@@ -1024,7 +1038,7 @@ private:
         BOOL *nativeForOkay = nullptr);
 
     template <bool buildAST>
-    ParseNodePtr ParseDestructuredVarDecl(tokens declarationType, bool isDecl, bool *hasSeenRest, bool topLevel = true, bool allowEmptyExpression = true);
+    ParseNodePtr ParseDestructuredVarDecl(tokens declarationType, bool isDecl, bool *hasSeenRest, bool topLevel = true, bool allowEmptyExpression = true, bool isObjectPattern = false);
 
     template <bool buildAST>
     ParseNodePtr ParseDestructuredInitializer(ParseNodeUni * lhsNode,
@@ -1073,11 +1087,11 @@ private:
     void AddToNodeList(ParseNode ** ppnodeList, ParseNode *** pppnodeLast, ParseNode * pnodeAdd);
     void AddToNodeListEscapedUse(ParseNode ** ppnodeList, ParseNode *** pppnodeLast, ParseNode * pnodeAdd);
 
-    void ChkCurTokNoScan(int tk, int wErr)
+    void ChkCurTokNoScan(int tk, int wErr, LPCWSTR stringOne = _u(""), LPCWSTR stringTwo = _u(""))
     {
         if (m_token.tk != tk)
         {
-            Error(wErr);
+            Error(wErr, stringOne, stringTwo);
         }
     }
 

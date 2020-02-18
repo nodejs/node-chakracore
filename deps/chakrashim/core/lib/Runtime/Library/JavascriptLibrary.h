@@ -160,35 +160,6 @@ namespace Js
     };
 #endif
 
-    template <typename T>
-    struct StringTemplateCallsiteObjectComparer
-    {
-        static bool Equals(T x, T y)
-        {
-            static_assert(false, "Unexpected type T");
-        }
-        static hash_t GetHashCode(T i)
-        {
-            static_assert(false, "Unexpected type T");
-        }
-    };
-
-    template <>
-    struct StringTemplateCallsiteObjectComparer<ParseNodePtr>
-    {
-        static bool Equals(ParseNodePtr x, RecyclerWeakReference<Js::RecyclableObject>* y);
-        static bool Equals(ParseNodePtr x, ParseNodePtr y);
-        static hash_t GetHashCode(ParseNodePtr i);
-    };
-
-    template <>
-    struct StringTemplateCallsiteObjectComparer<RecyclerWeakReference<Js::RecyclableObject>*>
-    {
-        static bool Equals(RecyclerWeakReference<Js::RecyclableObject>* x, RecyclerWeakReference<Js::RecyclableObject>* y);
-        static bool Equals(RecyclerWeakReference<Js::RecyclableObject>* x, ParseNodePtr y);
-        static hash_t GetHashCode(RecyclerWeakReference<Js::RecyclableObject>* o);
-    };
-
     class JavascriptLibrary : public JavascriptLibraryBase
     {
         friend class EditAndContinue;
@@ -224,6 +195,7 @@ namespace Js
         static DWORD GetBooleanFalseOffset() { return offsetof(JavascriptLibrary, booleanFalse); }
         static DWORD GetNegativeZeroOffset() { return offsetof(JavascriptLibrary, negativeZero); }
         static DWORD GetNumberTypeStaticOffset() { return offsetof(JavascriptLibrary, numberTypeStatic); }
+        static DWORD GetBigIntTypeStaticOffset() { return offsetof(JavascriptLibrary, bigintTypeStatic); }
         static DWORD GetObjectTypesOffset() { return offsetof(JavascriptLibrary, objectTypes); }
         static DWORD GetObjectHeaderInlinedTypesOffset() { return offsetof(JavascriptLibrary, objectHeaderInlinedTypes); }
         static DWORD GetRegexTypeOffset() { return offsetof(JavascriptLibrary, regexType); }
@@ -290,6 +262,8 @@ namespace Js
         Field(DynamicType *) charArrayType;
         Field(StaticType *) booleanTypeStatic;
         Field(DynamicType *) booleanTypeDynamic;
+        Field(DynamicType *) bigintTypeDynamic;
+        Field(StaticType *) bigintTypeStatic;
         Field(DynamicType *) dateType;
         Field(StaticType *) variantDateType;
         Field(DynamicType *) symbolTypeDynamic;
@@ -314,6 +288,8 @@ namespace Js
         Field(DynamicTypeHandler *) anonymousFunctionTypeHandler;
         Field(DynamicTypeHandler *) anonymousFunctionWithPrototypeTypeHandler;
         Field(DynamicTypeHandler *) functionTypeHandler;
+        Field(DynamicTypeHandler *) functionTypeHandlerWithLength;
+        Field(DynamicTypeHandler *) functionWithPrototypeAndLengthTypeHandler;
         Field(DynamicTypeHandler *) functionWithPrototypeTypeHandler;
         Field(DynamicType *) externalFunctionWithDeferredPrototypeType;
         Field(DynamicType *) externalFunctionWithLengthAndDeferredPrototypeType;
@@ -425,6 +401,7 @@ namespace Js
         Field(JavascriptFunction*) regexFlagsGetterFunction;
         Field(JavascriptFunction*) regexGlobalGetterFunction;
         Field(JavascriptFunction*) regexStickyGetterFunction;
+        Field(JavascriptFunction*) regexDotAllGetterFunction;
         Field(JavascriptFunction*) regexUnicodeGetterFunction;
 
         Field(RuntimeFunction*) sharedArrayBufferConstructor;
@@ -452,6 +429,7 @@ namespace Js
         Field(int) regexFlagsGetterSlotIndex;
         Field(int) regexGlobalGetterSlotIndex;
         Field(int) regexStickyGetterSlotIndex;
+        Field(int) regexDotAllGetterSlotIndex;
         Field(int) regexUnicodeGetterSlotIndex;
 
         mutable Field(CharStringCache) charStringCache;
@@ -472,13 +450,6 @@ namespace Js
         Field(FinalizableObject*) jsrtContextObject;
         Field(JsrtExternalTypesCache*) jsrtExternalTypesCache;
         Field(FunctionBody*) fakeGlobalFuncForUndefer;
-
-        typedef JsUtil::BaseHashSet<RecyclerWeakReference<RecyclableObject>*, Recycler, PowerOf2SizePolicy, RecyclerWeakReference<RecyclableObject>*, StringTemplateCallsiteObjectComparer> StringTemplateCallsiteObjectList;
-
-        // Used to store a list of template callsite objects.
-        // We use the raw strings in the callsite object (or a string template parse node) to identify unique callsite objects in the list.
-        // See abstract operation GetTemplateObject in ES6 Spec (RC1) 12.2.8.3
-        Field(StringTemplateCallsiteObjectList*) stringTemplateCallsiteObjectList;
 
         Field(ModuleRecordList*) moduleRecordList;
 
@@ -515,6 +486,8 @@ namespace Js
         static SimpleTypeHandler<2> SharedFunctionWithLengthAndNameTypeHandler;
         static SimpleTypeHandler<2> SharedIdMappedFunctionWithPrototypeTypeHandler;
         static SimpleTypeHandler<1> SharedNamespaceSymbolTypeHandler;
+        static SimpleTypeHandler<3> SharedFunctionWithPrototypeLengthAndNameTypeHandler;
+        static SimpleTypeHandler<2> SharedFunctionWithPrototypeAndLengthTypeHandler;
         static MissingPropertyTypeHandler MissingPropertyHolderTypeHandler;
 
         static SimplePropertyDescriptor const SharedFunctionPropertyDescriptors[2];
@@ -522,6 +495,8 @@ namespace Js
         static SimplePropertyDescriptor const HeapArgumentsPropertyDescriptors[3];
         static SimplePropertyDescriptor const FunctionWithLengthAndPrototypeTypeDescriptors[2];
         static SimplePropertyDescriptor const FunctionWithLengthAndNameTypeDescriptors[2];
+        static SimplePropertyDescriptor const FunctionWithPrototypeLengthAndNameTypeDescriptors[3];
+        static SimplePropertyDescriptor const FunctionWithPrototypeAndLengthTypeDescriptors[2];
         static SimplePropertyDescriptor const ModuleNamespaceTypeDescriptors[1];
 
     public:
@@ -552,7 +527,6 @@ namespace Js
             cacheForCopyOnAccessArraySegments(nullptr),
 #endif
             referencedPropertyRecords(nullptr),
-            stringTemplateCallsiteObjectList(nullptr),
             moduleRecordList(nullptr),
             rootPath(nullptr),
             bindRefChunkBegin(nullptr),
@@ -687,6 +661,8 @@ namespace Js
         StaticType  * GetBooleanTypeStatic() const { return booleanTypeStatic; }
         DynamicType * GetBooleanTypeDynamic() const { return booleanTypeDynamic; }
         DynamicType * GetDateType() const { return dateType; }
+        StaticType * GetBigIntTypeStatic() const { return bigintTypeStatic; }
+        DynamicType * GetBigIntTypeDynamic() const { return bigintTypeDynamic; }
         DynamicType * GetBoundFunctionType() const { return boundFunctionType; }
         DynamicType * GetRegExpConstructorType() const { return regexConstructorType; }
         StaticType  * GetEnumeratorType() const { return enumeratorType; }
@@ -705,6 +681,7 @@ namespace Js
         StaticType  * GetNumberTypeStatic() const { return numberTypeStatic; }
         StaticType  * GetInt64TypeStatic() const { return int64NumberTypeStatic; }
         StaticType  * GetUInt64TypeStatic() const { return uint64NumberTypeStatic; }
+
         DynamicType * GetNumberTypeDynamic() const { return numberTypeDynamic; }
         DynamicType * GetPromiseType() const { return promiseType; }
 
@@ -719,7 +696,7 @@ namespace Js
         JavascriptFunction* GetWebAssemblyCompileFunction() const { return webAssemblyCompileFunction; }
         JavascriptFunction* GetWebAssemblyInstantiateBoundFunction() const { return webAssemblyInstantiateBoundFunction; }
 #endif
-
+        
         DynamicType * GetObjectLiteralType(uint16 requestedInlineSlotCapacity);
         DynamicType * GetObjectHeaderInlinedLiteralType(uint16 requestedInlineSlotCapacity);
         DynamicType * GetObjectType() const { return objectTypes[0]; }
@@ -772,6 +749,7 @@ namespace Js
         JavascriptFunction* GetRegexFlagsGetterFunction() const { return regexFlagsGetterFunction; }
         JavascriptFunction* GetRegexGlobalGetterFunction() const { return regexGlobalGetterFunction; }
         JavascriptFunction* GetRegexStickyGetterFunction() const { return regexStickyGetterFunction; }
+        JavascriptFunction* GetRegexDotAllGetterFunction() const { return regexDotAllGetterFunction; }
         JavascriptFunction* GetRegexUnicodeGetterFunction() const { return regexUnicodeGetterFunction; }
 
         int GetRegexConstructorSlotIndex() const { return regexConstructorSlotIndex;  }
@@ -779,6 +757,7 @@ namespace Js
         int GetRegexFlagsGetterSlotIndex() const { return regexFlagsGetterSlotIndex;  }
         int GetRegexGlobalGetterSlotIndex() const { return regexGlobalGetterSlotIndex;  }
         int GetRegexStickyGetterSlotIndex() const { return regexStickyGetterSlotIndex;  }
+        int GetRegexDotAllGetterSlotIndex() const { return regexDotAllGetterSlotIndex;  }
         int GetRegexUnicodeGetterSlotIndex() const { return regexUnicodeGetterSlotIndex;  }
 
         TypePath* GetRootPath() const { return rootPath; }
@@ -916,12 +895,15 @@ namespace Js
 
         static DynamicTypeHandler * GetDeferredPrototypeFunctionTypeHandler(ScriptContext* scriptContext);
         static DynamicTypeHandler * GetDeferredPrototypeFunctionWithLengthTypeHandler(ScriptContext* scriptContext);
-        static DynamicTypeHandler * GetDeferredAnonymousPrototypeFunctionTypeHandler();
+        static DynamicTypeHandler * GetDeferredAnonymousPrototypeFunctionWithLengthTypeHandler();
         static DynamicTypeHandler * GetDeferredAnonymousPrototypeGeneratorFunctionTypeHandler();
         static DynamicTypeHandler * GetDeferredAnonymousPrototypeAsyncFunctionTypeHandler();
 
         DynamicTypeHandler * GetDeferredFunctionTypeHandler();
+        DynamicTypeHandler * GetDeferredFunctionWithLengthTypeHandler();
+        DynamicTypeHandler * GetDeferredPrototypeFunctionWithNameAndLengthTypeHandler();
         DynamicTypeHandler * ScriptFunctionTypeHandler(bool noPrototypeProperty, bool isAnonymousFunction);
+        DynamicTypeHandler * GetDeferredAnonymousFunctionWithLengthTypeHandler();
         DynamicTypeHandler * GetDeferredAnonymousFunctionTypeHandler();
         template<bool isNameAvailable, bool isPrototypeAvailable = true, bool isLengthAvailable = false>
         static DynamicTypeHandler * GetDeferredFunctionTypeHandlerBase();
@@ -1052,12 +1034,7 @@ namespace Js
         static bool IsCachedCopyOnAccessArrayCallSite(const JavascriptLibrary *lib, ArrayCallSiteInfo *arrayInfo);
         template <typename T>
         static void CheckAndConvertCopyOnAccessNativeIntArray(const T instance);
-#endif
-
-        void EnsureStringTemplateCallsiteObjectList();
-        void AddStringTemplateCallsiteObject(RecyclableObject* callsite);
-        RecyclableObject* TryGetStringTemplateCallsiteObject(ParseNodePtr pnode);
-        RecyclableObject* TryGetStringTemplateCallsiteObject(RecyclableObject* callsite);
+#endif    
 
         static void CheckAndInvalidateIsConcatSpreadableCache(PropertyId propertyId, ScriptContext *scriptContext);
 
@@ -1177,6 +1154,7 @@ namespace Js
         STANDARD_INIT(Proxy);
         STANDARD_INIT(Function);
         STANDARD_INIT(Number);
+        STANDARD_INIT(BigInt);
         STANDARD_INIT(Object);
         STANDARD_INIT(Regex);
         STANDARD_INIT(String);
@@ -1252,7 +1230,7 @@ namespace Js
 #endif
 
     public:
-        template<bool addPrototype>
+        template<bool addPrototype, bool addName, bool useLengthType>
         static bool __cdecl InitializeFunction(DynamicObject* function, DeferredTypeHandlerBase * typeHandler, DeferredInitializeMode mode);
         virtual void Finalize(bool isShutdown) override;
 
@@ -1286,6 +1264,7 @@ namespace Js
         HRESULT ProfilerRegisterFunction();
         HRESULT ProfilerRegisterMath();
         HRESULT ProfilerRegisterNumber();
+        HRESULT ProfilerRegisterBigInt();
         HRESULT ProfilerRegisterString();
         HRESULT ProfilerRegisterRegExp();
         HRESULT ProfilerRegisterJSON();

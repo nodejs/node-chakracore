@@ -144,6 +144,8 @@ private:
     IR::Instr *     LowerNewScGenFunc(IR::Instr *instr);
     IR::Instr *     LowerNewScFuncHomeObj(IR::Instr *instr);
     IR::Instr *     LowerNewScGenFuncHomeObj(IR::Instr *instr);
+    IR::Instr *     LowerStPropIdArrFromVar(IR::Instr *instr);
+    IR::Instr *     LowerRestify(IR::Instr *instr);
     IR::Instr*      GenerateCompleteStFld(IR::Instr* instr, bool emitFastPath, IR::JnHelperMethod monoHelperAfterFastPath, IR::JnHelperMethod polyHelperAfterFastPath,
                         IR::JnHelperMethod monoHelperWithoutFastPath, IR::JnHelperMethod polyHelperWithoutFastPath, bool withPutFlags, Js::PropertyOperationFlags flags);
     bool            GenerateStFldWithCachedType(IR::Instr * instrStFld, bool* continueAsHelperOut, IR::LabelInstr** labelHelperOut, IR::RegOpnd** typeOpndOut);
@@ -374,11 +376,11 @@ private:
     void            GenerateFastBrBReturn(IR::Instr * instr);
 
 public:
-    static IR::Instr *Lowerer::HoistIndirOffset(IR::Instr* instr, IR::IndirOpnd *indirOpnd, RegNum regNum);
-    static IR::Instr *Lowerer::HoistIndirOffsetAsAdd(IR::Instr* instr, IR::IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset, RegNum regNum);
-    static IR::Instr *Lowerer::HoistIndirIndexOpndAsAdd(IR::Instr* instr, IR::IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, IR::Opnd *indexOpnd, RegNum regNum);
-    static IR::Instr *Lowerer::HoistSymOffset(IR::Instr *instr, IR::SymOpnd *symOpnd, RegNum baseReg, uint32 offset, RegNum regNum);
-    static IR::Instr *Lowerer::HoistSymOffsetAsAdd(IR::Instr* instr, IR::SymOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset, RegNum regNum);
+    static IR::Instr *HoistIndirOffset(IR::Instr* instr, IR::IndirOpnd *indirOpnd, RegNum regNum);
+    static IR::Instr *HoistIndirOffsetAsAdd(IR::Instr* instr, IR::IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset, RegNum regNum);
+    static IR::Instr *HoistIndirIndexOpndAsAdd(IR::Instr* instr, IR::IndirOpnd *orgOpnd, IR::Opnd *baseOpnd, IR::Opnd *indexOpnd, RegNum regNum);
+    static IR::Instr *HoistSymOffset(IR::Instr *instr, IR::SymOpnd *symOpnd, RegNum baseReg, uint32 offset, RegNum regNum);
+    static IR::Instr *HoistSymOffsetAsAdd(IR::Instr* instr, IR::SymOpnd *orgOpnd, IR::Opnd *baseOpnd, int offset, RegNum regNum);
 
     static IR::LabelInstr *     InsertLabel(const bool isHelper, IR::Instr *const insertBeforeInstr);
 
@@ -624,7 +626,7 @@ private:
     bool            GenerateFastArgumentsLdElemI(IR::Instr* ldElem, IR::LabelInstr *labelFallThru);
     bool            GenerateFastRealStackArgumentsLdLen(IR::Instr *ldLen);
     bool            GenerateFastArgumentsLdLen(IR::Instr *ldLen, IR::LabelInstr* labelFallThru);
-    static const uint16  GetFormalParamOffset() { /*formal start after frame pointer, return address, function object, callInfo*/ return 4;};
+    static uint16   GetFormalParamOffset() { /*formal start after frame pointer, return address, function object, callInfo*/ return 4;};
 
     IR::RegOpnd*    GenerateFunctionTypeFromFixedFunctionObject(IR::Instr *callInstr, IR::Opnd* functionObjOpnd);
 
@@ -634,6 +636,7 @@ private:
     void GenerateSetObjectTypeFromInlineCache(IR::Instr * instrToInsertBefore, IR::RegOpnd * opndBase, IR::RegOpnd * opndInlineCache, bool isTypeTagged);
     bool GenerateFastStFld(IR::Instr * const instrStFld, IR::JnHelperMethod helperMethod, IR::JnHelperMethod polymorphicHelperMethod,
         IR::LabelInstr ** labelBailOut, IR::RegOpnd* typeOpnd, bool* pIsHelper, IR::LabelInstr** pLabelHelper, bool withPutFlags = false, Js::PropertyOperationFlags flags = Js::PropertyOperation_None);
+    void            GenerateAuxSlotPtrLoad(IR::PropertySymOpnd *propertySymOpnd, IR::Instr *insertInstr);
 
     bool            GenerateFastStFldForCustomProperty(IR::Instr *const instr, IR::LabelInstr * *const labelHelperRef);
 
@@ -669,8 +672,6 @@ private:
     void            LowerCoerseStrOrRegex(IR::Instr * instr);
     void            LowerConvPrimStr(IR::Instr * instr);
     void            LowerConvStrCommon(IR::JnHelperMethod helper, IR::Instr * instr);
-
-    void            LowerConvPropertyKey(IR::Instr* instr);
 
     void            GenerateRecyclerAlloc(IR::JnHelperMethod allocHelper, size_t allocSize, IR::RegOpnd* newObjDst, IR::Instr* insertionPointInstr, bool inOpHelper = false);
 
@@ -750,7 +751,7 @@ private:
     static IR::RegOpnd *    LoadGeneratorArgsPtr(IR::Instr *instrInsert);
     static IR::Instr *      LoadGeneratorObject(IR::Instr *instrInsert);
 
-    IR::Opnd *      LoadSlotArrayWithCachedLocalType(IR::Instr * instrInsert, IR::PropertySymOpnd *propertySymOpnd, bool canReuseAuxSlotPtr);
+    IR::Opnd *      LoadSlotArrayWithCachedLocalType(IR::Instr * instrInsert, IR::PropertySymOpnd *propertySymOpnd);
     IR::Opnd *      LoadSlotArrayWithCachedProtoType(IR::Instr * instrInsert, IR::PropertySymOpnd *propertySymOpnd);
     IR::Instr *     LowerLdAsmJsEnv(IR::Instr *instr);
     IR::Instr *     LowerLdEnv(IR::Instr *instr);

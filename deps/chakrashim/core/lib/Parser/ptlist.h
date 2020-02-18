@@ -23,6 +23,7 @@ PTNODE(knopNone       , "<none>"           , Nop      , None        , fnopNone  
 ***************************************************************************/
 PTNODE(knopName       , "name"             , Nop      , Name        , fnopLeaf|fnopAllowDefer, "NameExpr"                       )
 PTNODE(knopInt        , "int const"        , Nop      , Int         , fnopLeaf|fnopConst    , "NumberLit"                      )
+PTNODE(knopBigInt     , "bigint const"     , Nop      , BigInt      , fnopLeaf|fnopConst    , "BigIntLit"                      )
 PTNODE(knopImport     , "import"           , Nop      , None        , fnopLeaf              , "ImportExpr"                     )
 PTNODE(knopFlt        , "flt const"        , Nop      , Float       , fnopLeaf|fnopConst    , "NumberLit"                      )
 PTNODE(knopStr        , "str const"        , Nop      , Str         , fnopLeaf|fnopConst    , "StringLit"                      )
@@ -148,7 +149,7 @@ PTNODE(knopTry        , "try"              , Nop      , Try         , fnopNotExp
 PTNODE(knopThrow      , "throw"            , Nop      , Uni         , fnopNotExprStmt        , "ThrowStmt"                     )
 PTNODE(knopFinally    , "finally"          , Nop      , Finally     , fnopNotExprStmt|fnopCleanup, "FinallyStmt"               )
 PTNODE(knopTryFinally , "try-finally"      , Nop      , TryFinally  , fnopNotExprStmt        , "TryFinallyStmt"                )
-PTNODE(knopObjectPattern, "{} = "          , Nop      , Uni         , fnopUni                , "ObjectAssignmentPattern"       )
+PTNODE(knopObjectPattern, "{} = "          , Nop      , ObjLit      , fnopUni                , "ObjectAssignmentPattern"       )
 PTNODE(knopObjectPatternMember, "{:} = "   , Nop      , Bin         , fnopBin                , "ObjectAssignmentPatternMember" )
 PTNODE(knopArrayPattern, "[] = "           , Nop      , ArrLit      , fnopUni                , "ArrayAssignmentPattern"        )
 PTNODE(knopParamPattern, "({[]})"          , Nop      , ParamPattern, fnopUni                , "DestructurePattern"            )

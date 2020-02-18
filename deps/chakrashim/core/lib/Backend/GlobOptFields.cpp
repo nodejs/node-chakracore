@@ -208,7 +208,7 @@ void GlobOpt::KillLiveFields(BVSparse<JitArenaAllocator> *const fieldsToKill, BV
 }
 
 void
-GlobOpt::KillLiveElems(IR::IndirOpnd * indirOpnd, IR::Opnd * valueOpnd, BVSparse<JitArenaAllocator> * bv, bool inGlobOpt, Func *func)
+GlobOpt::KillLiveElems(IR::IndirOpnd * indirOpnd, BVSparse<JitArenaAllocator> * bv, bool inGlobOpt, Func *func)
 {
     IR::RegOpnd *indexOpnd = indirOpnd->GetIndexOpnd();
 
@@ -225,41 +225,17 @@ GlobOpt::KillLiveElems(IR::IndirOpnd * indirOpnd, IR::Opnd * valueOpnd, BVSparse
     // - We check the type specialization status for the sym as well. For the purpose of doing kills, we can assume that
     //   if type specialization happened, that fields don't need to be killed. Note that they may be killed in the next
     //   pass based on the value.
-    bool isSafeToTransfer = true;
-    if (func->GetThisOrParentInlinerHasArguments() || this->IsNonNumericRegOpnd(indexOpnd, inGlobOpt, &isSafeToTransfer))
+    if (func->GetThisOrParentInlinerHasArguments() ||
+        (
+            indexOpnd &&
+            (
+                indexOpnd->m_sym->m_isNotNumber ||
+                (inGlobOpt && !indexOpnd->GetValueType().IsNumber() && !currentBlock->globOptData.IsTypeSpecialized(indexOpnd->m_sym))
+            )
+        ))
     {
         this->KillAllFields(bv); // This also kills all property type values, as the same bit-vector tracks those stack syms
         SetAnyPropertyMayBeWrittenTo();
-    }
-    else if (inGlobOpt)
-    {
-        Value * indexValue = indexOpnd ? this->currentBlock->globOptData.FindValue(indexOpnd->GetSym()) : nullptr;
-        ValueInfo * indexValueInfo = indexValue ? indexValue->GetValueInfo() : nullptr;
-        int indexLowerBound = 0;
-
-        if (!isSafeToTransfer || indirOpnd->GetOffset() < 0 || (indexOpnd && (!indexValueInfo || !indexValueInfo->TryGetIntConstantLowerBound(&indexLowerBound, false) || indexLowerBound < 0)))
-        {
-            // Write/delete to a non-integer numeric index can't alias a name on the RHS of a dot, but it change object layout
-            this->KillAllObjectTypes(bv);
-        }
-        else if ((!valueOpnd || valueOpnd->IsVar()) && this->objectTypeSyms != nullptr)
-        {
-            // If we wind up converting a native array, block final-type opt at this point, because we could evolve
-            // to a type with the wrong type ID. Do this by noting that we may have evolved any type and so must
-            // check it before evolving it further.
-            IR::RegOpnd *baseOpnd = indirOpnd->GetBaseOpnd();
-            Value * baseValue = baseOpnd ? this->currentBlock->globOptData.FindValue(baseOpnd->m_sym) : nullptr;
-            ValueInfo * baseValueInfo = baseValue ? baseValue->GetValueInfo() : nullptr;
-            if (!baseValueInfo || !baseValueInfo->IsNotNativeArray() || 
-                (this->IsLoopPrePass() && !this->IsSafeToTransferInPrepass(baseOpnd->m_sym, baseValueInfo)))
-            {
-                if (this->currentBlock->globOptData.maybeWrittenTypeSyms == nullptr)
-                {
-                    this->currentBlock->globOptData.maybeWrittenTypeSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
-                }
-                this->currentBlock->globOptData.maybeWrittenTypeSyms->Or(this->objectTypeSyms);
-            }
-        }
     }
 }
 
@@ -347,40 +323,27 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
     IR::JnHelperMethod fnHelper;
     switch(instr->m_opcode)
     {
-    case Js::OpCode::StElemC:
     case Js::OpCode::StElemI_A:
     case Js::OpCode::StElemI_A_Strict:
         Assert(dstOpnd != nullptr);
         KillLiveFields(this->lengthEquivBv, bv);
-        KillLiveElems(dstOpnd->AsIndirOpnd(), instr->GetSrc1(), bv, inGlobOpt, instr->m_func);
-        if (inGlobOpt)
-        {
-            KillObjectHeaderInlinedTypeSyms(this->currentBlock, false);
-        }
+        KillLiveElems(dstOpnd->AsIndirOpnd(), bv, inGlobOpt, instr->m_func);
         break;
 
     case Js::OpCode::InitComputedProperty:
-    case Js::OpCode::InitGetElemI:
-    case Js::OpCode::InitSetElemI:
-        KillLiveElems(dstOpnd->AsIndirOpnd(), instr->GetSrc1(), bv, inGlobOpt, instr->m_func);
-        if (inGlobOpt)
-        {
-            KillObjectHeaderInlinedTypeSyms(this->currentBlock, false);
-        }
+        KillLiveElems(dstOpnd->AsIndirOpnd(), bv, inGlobOpt, instr->m_func);
         break;
 
     case Js::OpCode::DeleteElemI_A:
     case Js::OpCode::DeleteElemIStrict_A:
         Assert(dstOpnd != nullptr);
-        KillLiveElems(instr->GetSrc1()->AsIndirOpnd(), nullptr, bv, inGlobOpt, instr->m_func);
+        KillLiveElems(instr->GetSrc1()->AsIndirOpnd(), bv, inGlobOpt, instr->m_func);
         break;
 
     case Js::OpCode::DeleteFld:
     case Js::OpCode::DeleteRootFld:
     case Js::OpCode::DeleteFldStrict:
     case Js::OpCode::DeleteRootFldStrict:
-    case Js::OpCode::ScopedDeleteFld:
-    case Js::OpCode::ScopedDeleteFldStrict:
         sym = instr->GetSrc1()->AsSymOpnd()->m_sym;
         KillLiveFields(sym->AsPropertySym(), bv);
         if (inGlobOpt)
@@ -402,44 +365,13 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
             this->KillAllObjectTypes(bv);
         }
         break;
-
-    case Js::OpCode::ConsoleScopedStFld:
-    case Js::OpCode::ConsoleScopedStFldStrict:
-    case Js::OpCode::ScopedStFld:
-    case Js::OpCode::ScopedStFldStrict:
-        // This is already taken care of for FastFld opcodes
-
-        if (inGlobOpt)
-        {
-            KillObjectHeaderInlinedTypeSyms(this->currentBlock, false);
-            if (this->objectTypeSyms)
-            {
-                if (this->currentBlock->globOptData.maybeWrittenTypeSyms == nullptr)
-                {
-                    this->currentBlock->globOptData.maybeWrittenTypeSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
-                }
-                this->currentBlock->globOptData.maybeWrittenTypeSyms->Or(this->objectTypeSyms);
-            }
-        }
-
-        // fall through
-
     case Js::OpCode::InitFld:
-    case Js::OpCode::InitConstFld:
-    case Js::OpCode::InitLetFld:
-    case Js::OpCode::InitRootFld:
-    case Js::OpCode::InitRootConstFld:
-    case Js::OpCode::InitRootLetFld:
-#if !FLOATVAR
-    case Js::OpCode::StSlotBoxTemp:
-#endif
     case Js::OpCode::StFld:
     case Js::OpCode::StRootFld:
     case Js::OpCode::StFldStrict:
     case Js::OpCode::StRootFldStrict:
     case Js::OpCode::StSlot:
     case Js::OpCode::StSlotChkUndecl:
-    case Js::OpCode::StSuperFld:
         Assert(dstOpnd != nullptr);
         sym = dstOpnd->AsSymOpnd()->m_sym;
         if (inGlobOpt)
@@ -461,27 +393,14 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
 
     case Js::OpCode::InlineArrayPush:
     case Js::OpCode::InlineArrayPop:
-        if(instr->m_func->GetThisOrParentInlinerHasArguments())
-        {
-            this->KillAllFields(bv);
-            this->SetAnyPropertyMayBeWrittenTo();
-        }
-        else
-        {
-            KillLiveFields(this->lengthEquivBv, bv);
-            if (inGlobOpt)
-            {
-                // Deleting an item, or pushing a property to a non-array, may change object layout
-                KillAllObjectTypes(bv);
-            }
-        }
+        KillLiveFields(this->lengthEquivBv, bv);
         break;
 
     case Js::OpCode::InlineeStart:
     case Js::OpCode::InlineeEnd:
         Assert(!instr->UsesAllFields());
 
-        // Kill all live 'arguments' and 'caller' fields, as 'inlineeFunction.arguments' and 'inlineeFunction.caller' 
+        // Kill all live 'arguments' and 'caller' fields, as 'inlineeFunction.arguments' and 'inlineeFunction.caller'
         // cannot be copy-propped across different instances of the same inlined function.
         KillLiveFields(argumentsEquivBv, bv);
         KillLiveFields(callerEquivBv, bv);
@@ -490,68 +409,19 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
     case Js::OpCode::CallDirect:
         fnHelper = instr->GetSrc1()->AsHelperCallOpnd()->m_fnHelper;
 
-        switch (fnHelper)
+        // Kill length field for built-ins that can update it.
+        if(nullptr != this->lengthEquivBv && (fnHelper == IR::JnHelperMethod::HelperArray_Shift || fnHelper == IR::JnHelperMethod::HelperArray_Splice
+            || fnHelper == IR::JnHelperMethod::HelperArray_Unshift))
         {
-            case IR::JnHelperMethod::HelperArray_Shift:
-            case IR::JnHelperMethod::HelperArray_Splice:
-            case IR::JnHelperMethod::HelperArray_Unshift:
-                // Kill length field for built-ins that can update it.
-                if (nullptr != this->lengthEquivBv)
-                {
-                    // If has arguments, all fields are killed in fall through
-                    if (!instr->m_func->GetThisOrParentInlinerHasArguments())
-                    {
-                        KillLiveFields(this->lengthEquivBv, bv);
-                    }
-                }
-                // fall through
+            KillLiveFields(this->lengthEquivBv, bv);
+        }
 
-            case IR::JnHelperMethod::HelperArray_Reverse:
-                if (instr->m_func->GetThisOrParentInlinerHasArguments())
-                {
-                    this->KillAllFields(bv);
-                    this->SetAnyPropertyMayBeWrittenTo();
-                }
-                else if (inGlobOpt)
-                {
-                    // Deleting an item may change object layout
-                    KillAllObjectTypes(bv);
-                }
-                break;
-
-            case IR::JnHelperMethod::HelperArray_Slice:
-            case IR::JnHelperMethod::HelperArray_Concat:
-                if (inGlobOpt && this->objectTypeSyms)
-                {
-                    if (this->currentBlock->globOptData.maybeWrittenTypeSyms == nullptr)
-                    {
-                        this->currentBlock->globOptData.maybeWrittenTypeSyms = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
-                    }
-                    this->currentBlock->globOptData.maybeWrittenTypeSyms->Or(this->objectTypeSyms);
-                }
-                break;
-
-            case IR::JnHelperMethod::HelperRegExp_Exec:
-            case IR::JnHelperMethod::HelperRegExp_ExecResultNotUsed:
-            case IR::JnHelperMethod::HelperRegExp_ExecResultUsed:
-            case IR::JnHelperMethod::HelperRegExp_ExecResultUsedAndMayBeTemp:
-            case IR::JnHelperMethod::HelperRegExp_MatchResultNotUsed:
-            case IR::JnHelperMethod::HelperRegExp_MatchResultUsed:
-            case IR::JnHelperMethod::HelperRegExp_MatchResultUsedAndMayBeTemp:
-            case IR::JnHelperMethod::HelperRegExp_ReplaceStringResultUsed:
-            case IR::JnHelperMethod::HelperRegExp_ReplaceStringResultNotUsed:
-            case IR::JnHelperMethod::HelperRegExp_SplitResultNotUsed:
-            case IR::JnHelperMethod::HelperRegExp_SplitResultUsed:
-            case IR::JnHelperMethod::HelperRegExp_SplitResultUsedAndMayBeTemp:
-            case IR::JnHelperMethod::HelperRegExp_SymbolSearch:
-            case IR::JnHelperMethod::HelperString_Match:
-            case IR::JnHelperMethod::HelperString_Search:
-            case IR::JnHelperMethod::HelperString_Split:
-            case IR::JnHelperMethod::HelperString_Replace:
-                // Consider: We may not need to kill all fields here.
-                // We need to kill all the built-in properties that can be written, though, and there are a lot of those.
-                this->KillAllFields(bv);
-                break;
+        if ((fnHelper == IR::JnHelperMethod::HelperRegExp_Exec)
+           || (fnHelper == IR::JnHelperMethod::HelperString_Match)
+           || (fnHelper == IR::JnHelperMethod::HelperString_Replace))
+        {
+            // Consider: We may not need to kill all fields here.
+            this->KillAllFields(bv);
         }
         break;
 
@@ -561,18 +431,6 @@ GlobOpt::ProcessFieldKills(IR::Instr *instr, BVSparse<JitArenaAllocator> *bv, bo
     case Js::OpCode::LdLetHeapArgsCached:
         if (inGlobOpt) {
             this->KillLiveFields(this->slotSyms, bv);
-        }
-        break;
-
-    case Js::OpCode::InitClass:
-    case Js::OpCode::InitProto:
-    case Js::OpCode::NewScObjectNoCtor:
-    case Js::OpCode::NewScObjectNoCtorFull:
-        if (inGlobOpt)
-        {
-            // Opcodes that make an object into a prototype may break object-header-inlining and final type opt.
-            // Kill all known object layouts.
-            KillAllObjectTypes(bv);
         }
         break;
 
@@ -635,7 +493,7 @@ GlobOpt::CreateFieldSrcValue(PropertySym * sym, PropertySym * originalSym, IR::O
     }
 
     Assert((*ppOpnd)->AsSymOpnd()->m_sym == sym || this->IsLoopPrePass());
-    
+
     // We don't use the sym store to do copy prop on hoisted fields, but create a value
     // in case it can be copy prop out of the loop.
     return this->NewGenericValue(ValueType::Uninitialized, *ppOpnd);
@@ -906,7 +764,7 @@ GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock
 
         SymID opndId = opnd->HasObjectTypeSym() ? opnd->GetObjectTypeSym()->m_id : -1;
 
-        if (!isObjTypeSpecialized || opnd->IsBeingAdded())
+        if (!isObjTypeChecked)
         {
             if (block->globOptData.maybeWrittenTypeSyms == nullptr)
             {
@@ -929,6 +787,7 @@ GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock
         if (!isObjTypeSpecialized || opnd->ChangesObjectLayout())
         {
             this->KillObjectHeaderInlinedTypeSyms(block, isObjTypeSpecialized, opndId);
+            this->KillAuxSlotPtrSyms(opnd, block, isObjTypeSpecialized);
         }
         else if (!isObjTypeChecked && this->HasLiveObjectHeaderInlinedTypeSym(block, true, opndId))
         {
@@ -937,6 +796,37 @@ GlobOpt::FinishOptPropOp(IR::Instr *instr, IR::PropertySymOpnd *opnd, BasicBlock
     }
 
     return isObjTypeSpecialized;
+}
+
+StackSym *
+GlobOpt::EnsureAuxSlotPtrSym(IR::PropertySymOpnd *opnd)
+{
+    StackSym *auxSlotPtrSym = opnd->EnsureAuxSlotPtrSym(this->func);
+    this->auxSlotPtrSyms->Set(auxSlotPtrSym->m_id);
+    return auxSlotPtrSym;
+}
+
+void
+GlobOpt::KillAuxSlotPtrSyms(IR::PropertySymOpnd *opnd, BasicBlock *block, bool isObjTypeSpecialized)
+{
+    StackSym *auxSlotPtrSym = nullptr;
+    if (isObjTypeSpecialized)
+    {
+        // Kill all aux slot syms other than this one
+        auxSlotPtrSym = opnd->GetAuxSlotPtrSym();
+        if (auxSlotPtrSym)
+        {
+            Assert(this->auxSlotPtrSyms && this->auxSlotPtrSyms->Test(auxSlotPtrSym->m_id));
+            this->auxSlotPtrSyms->Clear(auxSlotPtrSym->m_id);
+        }
+    }
+
+    block->globOptData.liveFields->Minus(this->auxSlotPtrSyms);
+
+    if (auxSlotPtrSym)
+    {
+        this->auxSlotPtrSyms->Set(auxSlotPtrSym->m_id);
+    }
 }
 
 void
@@ -1123,19 +1013,6 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
     Assert(opnd->IsTypeCheckSeqCandidate());
     Assert(opnd->HasObjectTypeSym());
 
-    if (opnd->HasTypeMismatch())
-    {
-        if (emitsTypeCheckOut != nullptr)
-        {
-            *emitsTypeCheckOut = false;
-        }
-        if (changesTypeValueOut != nullptr)
-        {
-            *changesTypeValueOut = false;
-        }
-        return false;
-    }
-
     bool isStore = opnd == instr->GetDst();
     bool isTypeDead = opnd->IsTypeDead();
     bool consumeType = makeChanges && !IsLoopPrePass();
@@ -1243,7 +1120,7 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
                 // a new type value here.
                 isSpecialized = false;
 
-                if (makeChanges)
+                if (consumeType)
                 {
                     opnd->SetTypeMismatch(true);
                 }
@@ -1287,7 +1164,7 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
                 // a new type value here.
                 isSpecialized = false;
 
-                if (makeChanges)
+                if (consumeType)
                 {
                     opnd->SetTypeMismatch(true);
                 }
@@ -1338,7 +1215,7 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
             {
                 // Indicates failure/mismatch
                 isSpecialized = false;
-                if (makeChanges)
+                if (consumeType)
                 {
                     opnd->SetTypeMismatch(true);
                 }
@@ -1407,8 +1284,8 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
             }
         }
         else if (valueInfo->GetJsTypeSet() &&
-                 (opnd->IsMono() ? 
-                      valueInfo->GetJsTypeSet()->Contains(opnd->GetFirstEquivalentType()) : 
+                 (opnd->IsMono() ?
+                      valueInfo->GetJsTypeSet()->Contains(opnd->GetFirstEquivalentType()) :
                       IsSubsetOf(opndTypeSet, valueInfo->GetJsTypeSet())
                  )
             )
@@ -1437,7 +1314,7 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
             // a new type value here.
             isSpecialized = false;
 
-            if (makeChanges)
+            if (consumeType)
             {
                 opnd->SetTypeMismatch(true);
             }
@@ -1541,6 +1418,43 @@ GlobOpt::ProcessPropOpInTypeCheckSeq(IR::Instr* instr, IR::PropertySymOpnd *opnd
         *changesTypeValueOut = isSpecialized && (emitsTypeCheck || addsProperty);
     }
 
+    if (makeChanges)
+    {
+        // Track liveness of aux slot ptr syms.
+        if (!PHASE_OFF(Js::ReuseAuxSlotPtrPhase, this->func) && isSpecialized)
+        {
+            if (opnd->UsesAuxSlot() && !opnd->IsLoadedFromProto())
+            {
+                // Optimized ld/st that loads/uses an aux slot ptr.
+                // Aux slot sym is live forward.
+                StackSym *auxSlotPtrSym = this->EnsureAuxSlotPtrSym(opnd);
+                if (!this->IsLoopPrePass() && opnd->IsTypeChecked())
+                {
+                    if (block->globOptData.liveFields->TestAndSet(auxSlotPtrSym->m_id))
+                    {
+                        // Aux slot sym is available here. Tell lowerer to use it.
+                        opnd->SetAuxSlotPtrSymAvailable(true);
+                    }
+                }
+                else
+                {
+                    block->globOptData.liveFields->Set(auxSlotPtrSym->m_id);
+                }
+            }
+            else if (!opnd->IsTypeChecked())
+            {
+                // Type sym is not available here (i.e., object shape is not known) and we're not loading the aux slots.
+                // May get here with aux slot sym still in live set if type sym is not in the value table.
+                // Clear the aux slot sym out of the live set.
+                StackSym *auxSlotPtrSym = opnd->GetAuxSlotPtrSym();
+                if (auxSlotPtrSym)
+                {
+                    block->globOptData.liveFields->Clear(auxSlotPtrSym->m_id);
+                }
+            }
+        }
+    }
+
     return isSpecialized;
 }
 
@@ -1559,7 +1473,7 @@ GlobOpt::OptNewScObject(IR::Instr** instrPtr, Value* srcVal)
         instr->m_func->GetConstructorCache(static_cast<Js::ProfileId>(instr->AsProfiledInstr()->u.profileId)) : nullptr;
 
     // TODO: OOP JIT, enable assert
-    //Assert(ctorCache == nullptr || srcVal->GetValueInfo()->IsVarConstant() && Js::JavascriptFunction::Is(srcVal->GetValueInfo()->AsVarConstant()->VarValue()));
+    //Assert(ctorCache == nullptr || srcVal->GetValueInfo()->IsVarConstant() && Js::VarIs<Js::JavascriptFunction>(srcVal->GetValueInfo()->AsVarConstant()->VarValue()));
     Assert(ctorCache == nullptr || !ctorCache->IsTypeFinal() || ctorCache->CtorHasNoExplicitReturnValue());
 
     if (ctorCache != nullptr && !ctorCache->SkipNewScObject() && (isCtorInlined || ctorCache->IsTypeFinal()))
@@ -1854,6 +1768,11 @@ GlobOpt::KillObjectType(StackSym* objectSym, BVSparse<JitArenaAllocator>* liveFi
     }
 
     liveFields->Clear(objectSym->GetObjectTypeSym()->m_id);
+    StackSym *auxSlotPtrSym = objectSym->GetAuxSlotPtrSym();
+    if (auxSlotPtrSym)
+    {
+        liveFields->Clear(auxSlotPtrSym->m_id);
+    }
 }
 
 void
@@ -1862,6 +1781,7 @@ GlobOpt::KillAllObjectTypes(BVSparse<JitArenaAllocator>* liveFields)
     if (this->objectTypeSyms && liveFields)
     {
         liveFields->Minus(this->objectTypeSyms);
+        liveFields->Minus(this->auxSlotPtrSyms);
     }
 }
 
@@ -2047,6 +1967,12 @@ GlobOpt::UpdateObjPtrValueType(IR::Opnd * opnd, IR::Instr * instr)
     AnalysisAssert(type != nullptr);
     Js::TypeId typeId = type->GetTypeId();
 
+    if (Js::TypedArrayBase::Is(typeId))
+    {
+        // Type ID does not allow us to distinguish between virtual and non-virtual typed array.
+        return;
+    }
+
     // Passing false for useVirtual as we would never have a virtual typed array hitting this code path
     ValueType newValueType = ValueType::FromTypeId(typeId, false);
 
@@ -2055,8 +1981,20 @@ GlobOpt::UpdateObjPtrValueType(IR::Opnd * opnd, IR::Instr * instr)
         switch (typeId)
         {
         default:
-            // Can't mark as definite object because it may actually be object-with-array.
-            // Consider: a value type that subsumes object, array, and object-with-array.
+            if (typeId > Js::TypeIds_LastStaticType)
+            {
+                Assert(typeId != Js::TypeIds_Proxy);
+                if (objValueType.IsLikelyArrayOrObjectWithArray())
+                {
+                    // If we have likely object with array before, we can't make it definite object with array
+                    // since we have only proved that it is an object.
+                    // Keep the likely array or object with array.
+                }
+                else
+                {
+                    newValueType = ValueType::GetObject(ObjectType::Object);
+                }
+            }
             break;
         case Js::TypeIds_NativeIntArray:
         case Js::TypeIds_NativeFloatArray:

@@ -65,8 +65,6 @@
       <!-- /Gy -->
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <!-- /GF -->
-      <ControlFlowGuard Condition="'$(Platform)'!='ARM'">Guard</ControlFlowGuard>
-      <!-- /guard:cf -->
       <StringPooling>true</StringPooling>
       <!-- /MD -->
       <RuntimeLibrary Condition="'$(RuntimeLib)'!='static_library'">MultiThreadedDLL</RuntimeLibrary>

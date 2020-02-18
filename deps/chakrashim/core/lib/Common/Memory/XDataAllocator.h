@@ -16,7 +16,7 @@
 struct FunctionTableNode
 {
     SLIST_ENTRY itemEntry;
-    XDataAllocation* xdata;
+    FunctionTableHandle functionTable;
 };
 
 struct DelayDeletingFunctionTable
@@ -28,9 +28,9 @@ struct DelayDeletingFunctionTable
     DelayDeletingFunctionTable();
     ~DelayDeletingFunctionTable();
 
-    static bool AddEntry(XDataAllocation* xdata);
+    static bool AddEntry(FunctionTableHandle ft);
     static void Clear();
     static bool IsEmpty();
-    static void DeleteFunctionTable(XDataAllocation* xdata);
+    static void DeleteFunctionTable(void* functionTable);
 };
 #endif

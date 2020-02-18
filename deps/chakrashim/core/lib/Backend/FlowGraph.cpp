@@ -3424,7 +3424,7 @@ FlowGraph::RemoveInstr(IR::Instr *instr, GlobOpt * globOpt)
         *       - When we restore HeapArguments object in the bail out path, it expects the scope object also to be restored - if one was created.
         */
         Js::OpCode opcode = instr->m_opcode;
-        if (opcode == Js::OpCode::LdElemI_A && instr->DoStackArgsOpt(this->func) &&
+        if (opcode == Js::OpCode::LdElemI_A && instr->DoStackArgsOpt() &&
             globOpt->CurrentBlockData()->IsArgumentsOpnd(instr->GetSrc1()) && instr->m_func->GetScopeObjSym())
         {
             IR::ByteCodeUsesInstr * byteCodeUsesInstr = IR::ByteCodeUsesInstr::New(instr);
@@ -5266,7 +5266,7 @@ BasicBlock::MergePredBlocksValueMaps(GlobOpt* globOpt)
             }
             if(symsRequiringCompensationToMergedValueInfoMap.Count() != 0)
             {
-                globOpt->InsertValueCompensation(pred, this, &symsRequiringCompensationToMergedValueInfoMap);
+                globOpt->InsertValueCompensation(pred, symsRequiringCompensationToMergedValueInfoMap);
             }
         }
     } NEXT_PREDECESSOR_EDGE_EDITING;
@@ -5325,12 +5325,6 @@ BasicBlock::MergePredBlocksValueMaps(GlobOpt* globOpt)
         loop->liveFieldsOnEntry = JitAnew(globOpt->alloc, BVSparse<JitArenaAllocator>, globOpt->alloc);
         loop->liveFieldsOnEntry->Copy(this->globOptData.liveFields);
 
-        if (symsRequiringCompensationToMergedValueInfoMap.Count() != 0)
-        {
-            loop->symsRequiringCompensationToMergedValueInfoMap = JitAnew(globOpt->alloc, SymToValueInfoMap, globOpt->alloc);
-            loop->symsRequiringCompensationToMergedValueInfoMap->Copy(&symsRequiringCompensationToMergedValueInfoMap);
-        }
-        
         if(globOpt->DoBoundCheckHoist() && loop->inductionVariables)
         {
             globOpt->FinalizeInductionVariables(loop, &blockData);

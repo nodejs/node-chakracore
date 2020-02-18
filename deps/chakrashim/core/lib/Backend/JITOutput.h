@@ -22,7 +22,6 @@ public:
     void RecordXData(BYTE * xdata);
 #endif
     bool IsTrackCompoundedIntOverflowDisabled() const;
-    bool IsMemOpDisabled() const;
     bool IsArrayCheckHoistDisabled() const;
     bool IsStackArgOptDisabled() const;
     bool IsSwitchOptDisabled() const;

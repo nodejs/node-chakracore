@@ -66,6 +66,7 @@ HELPERCALLCHK(Op_LdElemUndefDynamic, Js::JavascriptOperators::OP_LoadUndefinedTo
 HELPERCALLCHK(Op_LdElemUndefScoped, Js::JavascriptOperators::OP_LoadUndefinedToElementScoped, AttrCanNotBeReentrant)
 HELPERCALLCHK(Op_EnsureNoRootProperty, Js::JavascriptOperators::OP_EnsureNoRootProperty, AttrCanThrow | AttrCanNotBeReentrant)
 HELPERCALLCHK(Op_EnsureNoRootRedeclProperty, Js::JavascriptOperators::OP_EnsureNoRootRedeclProperty, AttrCanThrow | AttrCanNotBeReentrant)
+HELPERCALLCHK(Op_EnsureCanDeclGloFunc, Js::JavascriptOperators::OP_EnsureCanDeclGloFunc, AttrCanThrow | AttrCanNotBeReentrant)
 HELPERCALLCHK(Op_EnsureNoRedeclPropertyScoped, Js::JavascriptOperators::OP_ScopedEnsureNoRedeclProperty, AttrCanThrow | AttrCanNotBeReentrant)
 
 HELPERCALLCHK(Op_ToSpreadedFunctionArgument, Js::JavascriptOperators::OP_LdCustomSpreadIteratorList, AttrCanThrow)
@@ -73,8 +74,8 @@ HELPERCALLCHK(Op_ConvObject, Js::JavascriptOperators::ToObject, AttrCanThrow | A
 HELPERCALLCHK(Op_NewUnscopablesWrapperObject, Js::JavascriptOperators::ToUnscopablesWrapperObject, AttrCanThrow | AttrCanNotBeReentrant)
 HELPERCALLCHK(SetComputedNameVar, Js::JavascriptOperators::OP_SetComputedNameVar, AttrCanNotBeReentrant)
 HELPERCALLCHK(Op_UnwrapWithObj, Js::JavascriptOperators::OP_UnwrapWithObj, AttrCanNotBeReentrant)
-HELPERCALLCHK(Op_ConvNumber_Full, Js::JavascriptOperators::ToNumber, AttrCanThrow)
-HELPERCALLCHK(Op_ConvNumberInPlace, Js::JavascriptOperators::ToNumberInPlace, AttrCanThrow)
+HELPERCALLCHK(Op_ConvNumber_Full, Js::JavascriptOperators::ToNumeric, AttrCanThrow)
+HELPERCALLCHK(Op_ConvNumberInPlace, Js::JavascriptOperators::ToNumericInPlace, AttrCanThrow)
 HELPERCALLCHK(Op_ConvNumber_Helper, Js::JavascriptConversion::ToNumber_Helper, 0)
 HELPERCALLCHK(Op_ConvFloat_Helper, Js::JavascriptConversion::ToFloat_Helper, 0)
 HELPERCALLCHK(Op_ConvNumber_FromPrimitive, Js::JavascriptConversion::ToNumber_FromPrimitive, 0)
@@ -134,7 +135,6 @@ HELPERCALL_MATH(Op_MaxInAnArray, Js::JavascriptMath::MaxInAnArray, AttrCanThrow)
 HELPERCALL_MATH(Op_MinInAnArray, Js::JavascriptMath::MinInAnArray, AttrCanThrow)
 
 HELPERCALLCHK(Op_ConvString, Js::JavascriptConversion::ToString, AttrCanThrow)
-HELPERCALLCHK(Op_ConvPropertyKey, Js::JavascriptOperators::OP_ToPropertyKey, AttrCanThrow)
 HELPERCALLCHK(Op_CoerseString, Js::JavascriptConversion::CoerseString, AttrCanThrow)
 HELPERCALLCHK(Op_CoerseRegex, (Js::JavascriptRegExp* (*) (Js::Var aValue, Js::Var options, Js::ScriptContext *scriptContext))Js::JavascriptRegExp::CreateRegEx, AttrCanThrow)
 
@@ -206,12 +206,6 @@ HELPERCALLCHK(Op_SetNativeIntElementI_Int32, Js::JavascriptOperators::OP_SetNati
 HELPERCALLCHK(Op_SetNativeFloatElementI_Int32, Js::JavascriptOperators::OP_SetNativeFloatElementI_Int32, AttrCanThrow)
 HELPERCALLCHK(Op_SetNativeIntElementI_UInt32, Js::JavascriptOperators::OP_SetNativeIntElementI_UInt32, AttrCanThrow)
 HELPERCALLCHK(Op_SetNativeFloatElementI_UInt32, Js::JavascriptOperators::OP_SetNativeFloatElementI_UInt32, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeIntElementI_NoConvert, Js::JavascriptOperators::OP_SetNativeIntElementI_NoConvert, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeFloatElementI_NoConvert, Js::JavascriptOperators::OP_SetNativeFloatElementI_NoConvert, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeIntElementI_Int32_NoConvert, Js::JavascriptOperators::OP_SetNativeIntElementI_Int32_NoConvert, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeFloatElementI_Int32_NoConvert, Js::JavascriptOperators::OP_SetNativeFloatElementI_Int32_NoConvert, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeIntElementI_UInt32_NoConvert, Js::JavascriptOperators::OP_SetNativeIntElementI_UInt32_NoConvert, AttrCanThrow)
-HELPERCALLCHK(Op_SetNativeFloatElementI_UInt32_NoConvert, Js::JavascriptOperators::OP_SetNativeFloatElementI_UInt32_NoConvert, AttrCanThrow)
 HELPERCALLCHK(ScrArr_SetNativeIntElementC, Js::JavascriptArray::OP_SetNativeIntElementC, AttrCanNotBeReentrant)
 HELPERCALLCHK(ScrArr_SetNativeFloatElementC, Js::JavascriptArray::OP_SetNativeFloatElementC, AttrCanNotBeReentrant)
 HELPERCALLCHK(Op_DeleteElementI, Js::JavascriptOperators::OP_DeleteElementI, AttrCanThrow)
@@ -490,8 +484,8 @@ HELPERCALL(String_ToLocaleUpperCase, Js::JavascriptString::EntryToLocaleUpperCas
 HELPERCALL(String_ToLowerCase, Js::JavascriptString::EntryToLowerCase, 0)
 HELPERCALL(String_ToUpperCase, Js::JavascriptString::EntryToUpperCase, 0)
 HELPERCALL(String_Trim, Js::JavascriptString::EntryTrim, 0)
-HELPERCALL(String_TrimLeft, Js::JavascriptString::EntryTrimLeft, 0)
-HELPERCALL(String_TrimRight, Js::JavascriptString::EntryTrimRight, 0)
+HELPERCALL(String_TrimLeft, Js::JavascriptString::EntryTrimStart, 0)
+HELPERCALL(String_TrimRight, Js::JavascriptString::EntryTrimEnd, 0)
 HELPERCALL(String_GetSz, Js::JavascriptString::GetSzHelper, 0)
 HELPERCALL(String_PadStart, Js::JavascriptString::EntryPadStart, 0)
 HELPERCALL(String_PadEnd, Js::JavascriptString::EntryPadEnd, 0)
@@ -517,6 +511,12 @@ HELPERCALL(EnsureFunctionProxyDeferredPrototypeType, &Js::FunctionProxy::EnsureF
 
 HELPERCALL(SpreadArrayLiteral, Js::JavascriptArray::SpreadArrayArgs, 0)
 HELPERCALL(SpreadCall, Js::JavascriptFunction::EntrySpreadCall, 0)
+
+HELPERCALL(SpreadObjectLiteral, Js::JavascriptObject::SpreadObjectLiteral, 0)
+HELPERCALL(Restify, Js::JavascriptObject::Restify, 0)
+HELPERCALL(NewPropIdArrForCompProps, Js::InterpreterStackFrame::OP_NewPropIdArrForCompProps, AttrCanNotBeReentrant)
+HELPERCALL(StPropIdArrFromVar, Js::InterpreterStackFrame::OP_StPropIdArrFromVar, 0)
+
 
 HELPERCALLCHK(LdHomeObj,           Js::JavascriptOperators::OP_LdHomeObj, AttrCanNotBeReentrant)
 HELPERCALLCHK(LdFuncObj,           Js::JavascriptOperators::OP_LdFuncObj, AttrCanNotBeReentrant)

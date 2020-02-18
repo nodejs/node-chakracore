@@ -159,12 +159,14 @@ PHASE(All)
                     PHASE(DepolymorphizeInlinees)
                     PHASE(ReuseAuxSlotPtr)
                     PHASE(PolyEquivTypeGuard)
+                    PHASE(DeadStoreTypeChecksOnStores)
                     #if DBG
                         PHASE(SimulatePolyCacheWithOneTypeForFunction)
                     #endif
                 PHASE(CheckThis)
                 PHASE(StackArgOpt)
                 PHASE(StackArgFormalsOpt)
+                PHASE(StackArgLenConstOpt)
                 PHASE(IndirCopyProp)
                 PHASE(ArrayCheckHoist)
                     PHASE(ArrayMissingValueCheckHoist)
@@ -258,6 +260,7 @@ PHASE(All)
         PHASE(PrologEpilog)
         PHASE(InsertNOPs)
         PHASE(Encoder)
+            PHASE(Assembly)
             PHASE(Emitter)
             PHASE(DebugBreak)
 #if defined(_M_IX86) || defined(_M_X64)
@@ -446,6 +449,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_HybridFgJitBgQueueLengthThreshold (32)
 #define DEFAULT_CONFIG_Prejit               (false)
 #define DEFAULT_CONFIG_ParserStateCache     (false)
+#define DEFAULT_CONFIG_CompressParserStateCache (false)
 #define DEFAULT_CONFIG_DeferTopLevelTillFirstCall (true)
 #define DEFAULT_CONFIG_DirectCallTelemetryStats (false)
 #define DEFAULT_CONFIG_errorStackTrace      (true)
@@ -559,6 +563,8 @@ PHASE(All)
 #define DEFAULT_CONFIG_RegexTracing         (false)
 #define DEFAULT_CONFIG_RegexProfile         (false)
 #define DEFAULT_CONFIG_RegexDebug           (false)
+#define DEFAULT_CONFIG_RegexDebugAST        (true)
+#define DEFAULT_CONFIG_RegexDebugAnnotatedAST (true)
 #define DEFAULT_CONFIG_RegexBytecodeDebug   (false)
 #define DEFAULT_CONFIG_RegexOptimize        (true)
 #define DEFAULT_CONFIG_DynamicRegexMruListSize (16)
@@ -586,6 +592,7 @@ PHASE(All)
 #endif
 #define DEFAULT_CONFIG_JitRepro                (false)
 #define DEFAULT_CONFIG_LdChakraLib             (false)
+#define DEFAULT_CONFIG_TestChakraLib           (false)
 #define DEFAULT_CONFIG_EntryPointInfoRpcData   (false)
 
 // ES6 DEFAULT BEHAVIOR
@@ -627,12 +634,17 @@ PHASE(All)
 #define DEFAULT_CONFIG_ES6Spread               (true)
 #define DEFAULT_CONFIG_ES6String               (true)
 #define DEFAULT_CONFIG_ES6StringPrototypeFixes (true)
+#define DEFAULT_CONFIG_ES2018ObjectRestSpread  (false)
+
+#ifndef DEFAULT_CONFIG_ES6PrototypeChain
 #ifdef COMPILE_DISABLE_ES6PrototypeChain
     // If ES6PrototypeChain needs to be disabled by compile flag, DEFAULT_CONFIG_ES6PrototypeChain should be false
     #define DEFAULT_CONFIG_ES6PrototypeChain       (false)
 #else
-    #define DEFAULT_CONFIG_ES6PrototypeChain       (false)
+    #define DEFAULT_CONFIG_ES6PrototypeChain       (true)
 #endif
+#endif
+
 #define DEFAULT_CONFIG_ES6ToPrimitive          (true)
 #define DEFAULT_CONFIG_ES6ToLength             (true)
 #define DEFAULT_CONFIG_ES6ToStringTag          (true)
@@ -640,6 +652,8 @@ PHASE(All)
 #define DEFAULT_CONFIG_ES6UnicodeVerbose       (true)
 #define DEFAULT_CONFIG_ES6Unscopables          (true)
 #define DEFAULT_CONFIG_ES6RegExSticky          (true)
+#define DEFAULT_CONFIG_ES2018RegExDotAll          (true)
+#define DEFAULT_CONFIG_ESBigInt          (false)
 #ifdef COMPILE_DISABLE_ES6RegExPrototypeProperties
     // If ES6RegExPrototypeProperties needs to be disabled by compile flag, DEFAULT_CONFIG_ES6RegExPrototypeProperties should be false
     #define DEFAULT_CONFIG_ES6RegExPrototypeProperties (false)
@@ -659,6 +673,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_ES7ValuesEntries        (true)
 #define DEFAULT_CONFIG_ESObjectGetOwnPropertyDescriptors (true)
 #define DEFAULT_CONFIG_ESDynamicImport         (false)
+#define DEFAULT_CONFIG_ESExportNsAs            (true)
 
 #define DEFAULT_CONFIG_ESSharedArrayBuffer     (false)
 
@@ -763,7 +778,7 @@ PHASE(All)
 #define DEFAULT_CONFIG_LibraryStackFrameDebugger    (false)
 
 #define DEFAULT_CONFIG_FuncObjectInlineCacheThreshold   (2) // Maximum number of inline caches a function body may have to allow for inline caches to be allocated on the function object.
-#define DEFAULT_CONFIG_ShareInlineCaches (true)
+#define DEFAULT_CONFIG_ShareInlineCaches (false)
 #define DEFAULT_CONFIG_InlineCacheInvalidationListCompactionThreshold (4)
 #define DEFAULT_CONFIG_ConstructorCacheInvalidationThreshold (500)
 
@@ -1017,6 +1032,7 @@ FLAGNR(Phases,  DebugBreakOnPhaseBegin, "Break into debugger at the beginning of
 
 FLAGNR(Boolean, DebugWindow           , "Send console output to debugger window", false)
 FLAGNR(Boolean, ParserStateCache      , "Enable creation of parser state cache", DEFAULT_CONFIG_ParserStateCache)
+FLAGNR(Boolean, CompressParserStateCache, "Enable compression of the parser state cache", DEFAULT_CONFIG_CompressParserStateCache)
 FLAGNR(Boolean, DeferTopLevelTillFirstCall      , "Enable tracking of deferred top level functions in a script file, until the first function of the script context is parsed.", DEFAULT_CONFIG_DeferTopLevelTillFirstCall)
 FLAGNR(Number,  DeferParse            , "Minimum size of defer-parsed script (non-zero only: use /nodeferparse do disable", 0)
 FLAGNR(Boolean, DirectCallTelemetryStats, "Enables logging stats for direct call telemetry", DEFAULT_CONFIG_DirectCallTelemetryStats)
@@ -1071,6 +1087,8 @@ FLAGNR(Boolean, JitRepro              , "Add Function.invokeJit to execute codeg
 FLAGNR(Boolean, EntryPointInfoRpcData , "Keep encoded rpc buffer for jitted function on EntryPointInfo until cleanup", DEFAULT_CONFIG_EntryPointInfoRpcData)
 
 FLAGNR(Boolean, LdChakraLib           , "Access to the Chakra internal library with the __chakraLibrary keyword", DEFAULT_CONFIG_LdChakraLib)
+FLAGNR(Boolean, TestChakraLib         , "Access to the Chakra internal library with the __chakraLibrary keyword without global access restriction", DEFAULT_CONFIG_TestChakraLib)
+
 // ES6 (BLUE+1) features/flags
 
 // Master ES6 flag to enable STABLE ES6 features/flags
@@ -1121,11 +1139,9 @@ FLAGPR           (Boolean, ES6, ES6Rest                , "Enable ES6 Rest parame
 FLAGPR           (Boolean, ES6, ES6Spread              , "Enable ES6 Spread support"                                , DEFAULT_CONFIG_ES6Spread)
 FLAGPR           (Boolean, ES6, ES6String              , "Enable ES6 String extensions"                             , DEFAULT_CONFIG_ES6String)
 FLAGPR           (Boolean, ES6, ES6StringPrototypeFixes, "Enable ES6 String.prototype fixes"                        , DEFAULT_CONFIG_ES6StringPrototypeFixes)
+FLAGPR           (Boolean, ES6, ES2018ObjectRestSpread , "Enable ES2018 Object Rest/Spread"                         , DEFAULT_CONFIG_ES2018ObjectRestSpread)
 
-#ifndef COMPILE_DISABLE_ES6PrototypeChain
-    #define COMPILE_DISABLE_ES6PrototypeChain 0
-#endif
-FLAGPR_REGOVR_EXP(Boolean, ES6, ES6PrototypeChain      , "Enable ES6 prototypes (Example: Date prototype is object)", DEFAULT_CONFIG_ES6PrototypeChain)
+FLAGPR           (Boolean, ES6, ES6PrototypeChain      , "Enable ES6 prototypes (Example: Date prototype is object)", DEFAULT_CONFIG_ES6PrototypeChain)
 FLAGPR           (Boolean, ES6, ES6ToPrimitive         , "Enable ES6 ToPrimitive symbol"                            , DEFAULT_CONFIG_ES6ToPrimitive)
 FLAGPR           (Boolean, ES6, ES6ToLength            , "Enable ES6 ToLength fixes"                                , DEFAULT_CONFIG_ES6ToLength)
 FLAGPR           (Boolean, ES6, ES6ToStringTag         , "Enable ES6 ToStringTag symbol"                            , DEFAULT_CONFIG_ES6ToStringTag)
@@ -1133,6 +1149,8 @@ FLAGPR           (Boolean, ES6, ES6Unicode             , "Enable ES6 Unicode 6.0
 FLAGPR           (Boolean, ES6, ES6UnicodeVerbose      , "Enable ES6 Unicode 6.0 verbose failure output"            , DEFAULT_CONFIG_ES6UnicodeVerbose)
 FLAGPR           (Boolean, ES6, ES6Unscopables         , "Enable ES6 With Statement Unscopables"                    , DEFAULT_CONFIG_ES6Unscopables)
 FLAGPR           (Boolean, ES6, ES6RegExSticky         , "Enable ES6 RegEx sticky flag"                             , DEFAULT_CONFIG_ES6RegExSticky)
+FLAGPR           (Boolean, ES6, ES2018RegExDotAll      , "Enable ES2018 RegEx dotAll flag"                          , DEFAULT_CONFIG_ES2018RegExDotAll)
+FLAGPR           (Boolean, ES6, ESExportNsAs           , "Enable ES experimental export * as name"                  , DEFAULT_CONFIG_ESExportNsAs)
 
 #ifndef COMPILE_DISABLE_ES6RegExPrototypeProperties
     #define COMPILE_DISABLE_ES6RegExPrototypeProperties 0
@@ -1166,6 +1184,9 @@ FLAGPR_REGOVR_EXP(Boolean, ES6, ESSharedArrayBuffer    , "Enable SharedArrayBuff
 FLAGNR(Boolean, WinRTDelegateInterfaces , "Treat WinRT Delegates as Interfaces when determining their resolvability.", DEFAULT_CONFIG_WinRTDelegateInterfaces)
 FLAGR(Boolean, WinRTAdaptiveApps        , "Enable the adaptive apps feature, allowing for variable projection."      , DEFAULT_CONFIG_WinRTAdaptiveApps)
 #endif
+
+// ES BigInt flag
+FLAGR(Boolean, ESBigInt, "Enable ESBigInt flag", DEFAULT_CONFIG_ESBigInt)
 
 // This flag to be removed once JITing generator functions is stable
 FLAGNR(Boolean, JitES6Generators        , "Enable JITing of ES6 generators", false)
@@ -1540,6 +1561,8 @@ FLAGNR(Boolean, ValidateHeapEnum      , "Validate that heap enumeration is repor
 FLAGR (Boolean, RegexTracing          , "Trace all Regex invocations to the output.", DEFAULT_CONFIG_RegexTracing)
 FLAGR (Boolean, RegexProfile          , "Collect usage statistics on all Regex invocations.", DEFAULT_CONFIG_RegexProfile)
 FLAGR (Boolean, RegexDebug            , "Trace compilation of UnifiedRegex expressions.", DEFAULT_CONFIG_RegexDebug)
+FLAGR (Boolean, RegexDebugAST         , "Display Regex AST (requires -RegexDebug to view). [default on]", DEFAULT_CONFIG_RegexDebugAST)
+FLAGR (Boolean, RegexDebugAnnotatedAST, "Display Regex Annotated AST (requires -RegexDebug and -RegexDebugAST to view). [default on]", DEFAULT_CONFIG_RegexDebugAnnotatedAST)
 FLAGR (Boolean, RegexBytecodeDebug    , "Display layout of UnifiedRegex bytecode (requires -RegexDebug to view).", DEFAULT_CONFIG_RegexBytecodeDebug)
 FLAGR (Boolean, RegexOptimize         , "Optimize regular expressions in the unified Regex system (default: true)", DEFAULT_CONFIG_RegexOptimize)
 FLAGR (Number,  DynamicRegexMruListSize, "Size of the MRU list for dynamic regexes", DEFAULT_CONFIG_DynamicRegexMruListSize)

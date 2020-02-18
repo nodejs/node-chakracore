@@ -69,18 +69,11 @@ void Scope::SetIsObject()
         });
     }
 
-    // If the scope is split (there exists a body and param scope), then it is required that the
-    // body and param scope are marked as both requiring either a scope object or a scope slot.
-    if ((this->GetScopeType() == ScopeType_FunctionBody || this->GetScopeType() == ScopeType_Parameter)
-        && funcInfo && !funcInfo->IsBodyAndParamScopeMerged())
+    if (this->GetScopeType() == ScopeType_FunctionBody && funcInfo && !funcInfo->IsBodyAndParamScopeMerged()
+         && funcInfo->paramScope && !funcInfo->paramScope->GetIsObject())
     {
-        // The scope is split and one of the scopes (param or body) is being set 
-        // as an object, therefore set both the param and body scopes as objects.
-        Assert(funcInfo->paramScope);
+        // If this is split scope then mark the param scope also as an object
         funcInfo->paramScope->SetIsObject();
-
-        Assert(funcInfo->bodyScope);
-        funcInfo->bodyScope->SetIsObject();
     }
 }
 

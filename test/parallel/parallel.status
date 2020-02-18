@@ -250,10 +250,6 @@ test-vm-createcacheddata : SKIP
 # Issue: https://github.com/nodejs/node-chakracore/issues/563
 test-zlib-unused-weak : SKIP
 
-# Removed the wake->notify shim code
-# Issue: https://github.com/nodejs/node-chakracore/issues/565
-test-atomics-notify : SKIP
-
 # These tests rely on V8's custom heap dumping and validation
 test-heapdump-dns : SKIP
 test-heapdump-fs-promise : SKIP

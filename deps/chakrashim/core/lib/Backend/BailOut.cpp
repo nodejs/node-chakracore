@@ -22,10 +22,29 @@ BailOutInfo::Clear(JitArenaAllocator * allocator)
     {
         this->capturedValues->constantValues.Clear(allocator);
         this->capturedValues->copyPropSyms.Clear(allocator);
+
+        if (this->capturedValues->argObjSyms)
+        {
+            JitAdelete(allocator, this->capturedValues->argObjSyms);
+        }
+
         JitAdelete(allocator, this->capturedValues);
     }
-    this->usedCapturedValues.constantValues.Clear(allocator);
-    this->usedCapturedValues.copyPropSyms.Clear(allocator);
+
+    if (this->usedCapturedValues)
+    {
+        Assert(this->usedCapturedValues->refCount == 0);
+        this->usedCapturedValues->constantValues.Clear(allocator);
+        this->usedCapturedValues->copyPropSyms.Clear(allocator);
+
+        if (this->usedCapturedValues->argObjSyms)
+        {
+            JitAdelete(allocator, this->usedCapturedValues->argObjSyms);
+        }
+
+        JitAdelete(allocator, this->usedCapturedValues);
+    }
+
     if (byteCodeUpwardExposedUsed)
     {
         JitAdelete(allocator, byteCodeUpwardExposedUsed);
@@ -576,10 +595,10 @@ BailOutRecord::RestoreValues(IR::BailOutKind bailOutKind, Js::JavascriptCallStac
                         Assert(RegTypes[LinearScanMD::GetRegisterFromSaveIndex(offset)] != TyFloat64);
                         value = registerSaveSpace[offset - 1];
                     }
-                    Assert(Js::DynamicObject::Is(value));
+                    Assert(Js::DynamicObject::IsBaseDynamicObject(value));
                     Assert(ThreadContext::IsOnStack(value));
 
-                    Js::DynamicObject * obj = Js::DynamicObject::FromVar(value);
+                    Js::DynamicObject * obj = Js::VarTo<Js::DynamicObject>(value);
                     uint propertyCount = obj->GetPropertyCount();
                     for (uint j = record.initFldCount; j < propertyCount; j++)
                     {
@@ -656,7 +675,7 @@ BailOutRecord::RestoreValues(IR::BailOutKind bailOutKind, Js::JavascriptCallStac
     if (branchValueRegSlot != Js::Constants::NoRegister)
     {
         // Used when a t1 = CmCC is optimize to BrCC, and the branch bails out. T1 needs to be restored
-        Assert(branchValue && Js::JavascriptBoolean::Is(branchValue));
+        Assert(branchValue && Js::VarIs<Js::JavascriptBoolean>(branchValue));
         Assert(branchValueRegSlot < newInstance->GetJavascriptFunction()->GetFunctionBody()->GetLocalsCount());
         newInstance->m_localSlots[branchValueRegSlot] = branchValue;
     }
@@ -1004,7 +1023,7 @@ BailOutRecord::BailOutCommonNoCodeGen(Js::JavascriptCallStackLayout * layout, Ba
     BailOutReturnValue * bailOutReturnValue, void * argoutRestoreAddress)
 {
     Assert(bailOutRecord->parent == nullptr);
-    Assert(Js::ScriptFunction::Is(layout->functionObject));
+    Assert(Js::VarIs<Js::ScriptFunction>(layout->functionObject));
     Js::ScriptFunction ** functionRef = (Js::ScriptFunction **)&layout->functionObject;
     Js::ArgumentReader args(&layout->callInfo, layout->args);
     Js::Var result = BailOutHelper(layout, functionRef, args, false, bailOutRecord, bailOutOffset, returnAddress, bailOutKind, registerSaves, bailOutReturnValue, layout->GetArgumentsObjectLocation(), branchValue, argoutRestoreAddress);
@@ -1031,7 +1050,7 @@ uint32 bailOutOffset, void * returnAddress, IR::BailOutKind bailOutKind, Js::Imp
         sizeof(registerSaves));
 
     Js::Var result = BailOutCommonNoCodeGen(layout, bailOutRecord, bailOutOffset, returnAddress, bailOutKind, branchValue, registerSaves, bailOutReturnValue, argoutRestoreAddress);
-    ScheduleFunctionCodeGen(Js::ScriptFunction::FromVar(layout->functionObject), nullptr, bailOutRecord, bailOutKind, bailOutOffset, savedImplicitCallFlags, returnAddress);
+    ScheduleFunctionCodeGen(Js::VarTo<Js::ScriptFunction>(layout->functionObject), nullptr, bailOutRecord, bailOutKind, bailOutOffset, savedImplicitCallFlags, returnAddress);
     return result;
 }
 
@@ -1060,7 +1079,7 @@ BailOutRecord::BailOutInlinedCommon(Js::JavascriptCallStackLayout * layout, Bail
     }
     Js::Var result = BailOutCommonNoCodeGen(layout, currentBailOutRecord, currentBailOutRecord->bailOutOffset, returnAddress, bailOutKind, branchValue,
         registerSaves, &bailOutReturnValue);
-    ScheduleFunctionCodeGen(Js::ScriptFunction::FromVar(layout->functionObject), innerMostInlinee, currentBailOutRecord, bailOutKind, bailOutOffset, savedImplicitCallFlags, returnAddress);
+    ScheduleFunctionCodeGen(Js::VarTo<Js::ScriptFunction>(layout->functionObject), innerMostInlinee, currentBailOutRecord, bailOutKind, bailOutOffset, savedImplicitCallFlags, returnAddress);
     return result;
 }
 
@@ -1076,7 +1095,7 @@ BailOutRecord::BailOutFromLoopBodyCommon(Js::JavascriptCallStackLayout * layout,
     js_memcpy_s(registerSaves, sizeof(registerSaves), (Js::Var *)layout->functionObject->GetScriptContext()->GetThreadContext()->GetBailOutRegisterSaveSpace(),
         sizeof(registerSaves));
     uint32 result = BailOutFromLoopBodyHelper(layout, bailOutRecord, bailOutOffset, bailOutKind, branchValue, registerSaves);
-    ScheduleLoopBodyCodeGen(Js::ScriptFunction::FromVar(layout->functionObject), nullptr, bailOutRecord, bailOutKind);
+    ScheduleLoopBodyCodeGen(Js::VarTo<Js::ScriptFunction>(layout->functionObject), nullptr, bailOutRecord, bailOutKind);
     return result;
 }
 
@@ -1106,7 +1125,7 @@ BailOutRecord::BailOutFromLoopBodyInlinedCommon(Js::JavascriptCallStackLayout * 
 
     uint32 result = BailOutFromLoopBodyHelper(layout, currentBailOutRecord, currentBailOutRecord->bailOutOffset,
         bailOutKind, nullptr, registerSaves, &bailOutReturnValue);
-    ScheduleLoopBodyCodeGen(Js::ScriptFunction::FromVar(layout->functionObject), innerMostInlinee, currentBailOutRecord, bailOutKind);
+    ScheduleLoopBodyCodeGen(Js::VarTo<Js::ScriptFunction>(layout->functionObject), innerMostInlinee, currentBailOutRecord, bailOutKind);
     return result;
 }
 
@@ -1118,7 +1137,7 @@ BailOutRecord::BailOutInlinedHelper(Js::JavascriptCallStackLayout * layout, Bail
     BailOutReturnValue * lastBailOutReturnValue = nullptr;
     *innerMostInlinee = nullptr;
 
-    Js::FunctionBody* functionBody = Js::ScriptFunction::FromVar(layout->functionObject)->GetFunctionBody();
+    Js::FunctionBody* functionBody = Js::VarTo<Js::ScriptFunction>(layout->functionObject)->GetFunctionBody();
 
     Js::EntryPointInfo *entryPointInfo;
     if(isInLoopBody)
@@ -1162,7 +1181,7 @@ BailOutRecord::BailOutInlinedHelper(Js::JavascriptCallStackLayout * layout, Bail
 
         Js::ScriptFunction ** functionRef = (Js::ScriptFunction **)&(inlinedFrame->function);
         AnalysisAssert(*functionRef);
-        Assert(Js::ScriptFunction::Is(inlinedFrame->function));
+        Assert(Js::VarIs<Js::ScriptFunction>(inlinedFrame->function));
 
         if (*innerMostInlinee == nullptr)
         {
@@ -1381,7 +1400,7 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
         // when resuming a generator and not needed when yielding from a generator, as is occurring
         // here.
         AssertMsg(args.Info.Count == 2, "Generator ScriptFunctions should only be invoked by generator APIs with the pair of arguments they pass in -- the generator object and a ResumeYieldData pointer");
-        Js::JavascriptGenerator* generator = Js::JavascriptGenerator::FromVar(args[0]);
+        Js::JavascriptGenerator* generator = Js::VarTo<Js::JavascriptGenerator>(args[0]);
         newInstance = generator->GetFrame();
 
         if (newInstance != nullptr)
@@ -1403,7 +1422,6 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             //
             Js::Arguments generatorArgs = generator->GetArguments();
             Js::InterpreterStackFrame::Setup setup(function, generatorArgs, true, isInlinee);
-            Assert(setup.GetStackAllocationVarCount() == 0);
             size_t varAllocCount = setup.GetAllocationVarCount();
             size_t varSizeInBytes = varAllocCount * sizeof(Js::Var);
             DWORD_PTR stackAddr = reinterpret_cast<DWORD_PTR>(&generator); // as mentioned above, use any stack address from this frame to ensure correct debugging functionality
@@ -1416,13 +1434,10 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
             // Allocate invalidVar on GC instead of stack since this InterpreterStackFrame will out live the current real frame
             Js::Var invalidVar = (Js::RecyclableObject*)RecyclerNewPlusLeaf(functionScriptContext->GetRecycler(), sizeof(Js::RecyclableObject), Js::Var);
             memset(invalidVar, 0xFE, sizeof(Js::RecyclableObject));
+            newInstance = setup.InitializeAllocation(allocation, false, false, loopHeaderArray, stackAddr, invalidVar);
+#else
+            newInstance = setup.InitializeAllocation(allocation, false, false, loopHeaderArray, stackAddr);
 #endif
-
-            newInstance = setup.InitializeAllocation(allocation, nullptr, false, false, loopHeaderArray, stackAddr
-#if DBG
-                , invalidVar
-#endif
-                );
 
             newInstance->m_reader.Create(executeFunction);
 
@@ -1433,28 +1448,18 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
     {
         Js::InterpreterStackFrame::Setup setup(function, args, true, isInlinee);
         size_t varAllocCount = setup.GetAllocationVarCount();
-        size_t stackVarAllocCount = setup.GetStackAllocationVarCount();
-        size_t varSizeInBytes;
-        Js::Var *stackAllocation = nullptr;
+        size_t varSizeInBytes = varAllocCount * sizeof(Js::Var);
 
         // If the locals area exceeds a certain limit, allocate it from a private arena rather than
         // this frame. The current limit is based on an old assert on the number of locals we would allow here.
-        if ((varAllocCount + stackVarAllocCount) > Js::InterpreterStackFrame::LocalsThreshold)
+        if (varAllocCount > Js::InterpreterStackFrame::LocalsThreshold)
         {
             ArenaAllocator *tmpAlloc = nullptr;
             fReleaseAlloc = functionScriptContext->EnsureInterpreterArena(&tmpAlloc);
-            varSizeInBytes = varAllocCount * sizeof(Js::Var);
             allocation = (Js::Var*)tmpAlloc->Alloc(varSizeInBytes);
-            if (stackVarAllocCount != 0)
-            {
-                size_t stackVarSizeInBytes = stackVarAllocCount * sizeof(Js::Var);
-                PROBE_STACK_PARTIAL_INITIALIZED_BAILOUT_FRAME(functionScriptContext, Js::Constants::MinStackInterpreter + stackVarSizeInBytes, returnAddress);
-                stackAllocation = (Js::Var*)_alloca(stackVarSizeInBytes);
-            }
         }
         else
         {
-            varSizeInBytes = (varAllocCount + stackVarAllocCount) * sizeof(Js::Var);
             PROBE_STACK_PARTIAL_INITIALIZED_BAILOUT_FRAME(functionScriptContext, Js::Constants::MinStackInterpreter + varSizeInBytes, returnAddress);
             allocation = (Js::Var*)_alloca(varSizeInBytes);
         }
@@ -1479,13 +1484,10 @@ BailOutRecord::BailOutHelper(Js::JavascriptCallStackLayout * layout, Js::ScriptF
 #if DBG
         Js::Var invalidStackVar = (Js::RecyclableObject*)_alloca(sizeof(Js::RecyclableObject));
         memset(invalidStackVar, 0xFE, sizeof(Js::RecyclableObject));
+        newInstance = setup.InitializeAllocation(allocation, false, false, loopHeaderArray, frameStackAddr, invalidStackVar);
+#else
+        newInstance = setup.InitializeAllocation(allocation, false, false, loopHeaderArray, frameStackAddr);
 #endif
-
-        newInstance = setup.InitializeAllocation(allocation, stackAllocation, false, false, loopHeaderArray, frameStackAddr
-#if DBG
-            , invalidStackVar
-#endif
-            );
 
         newInstance->m_reader.Create(executeFunction);
     }

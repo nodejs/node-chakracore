@@ -94,7 +94,6 @@ EXDEF2    (BRPROP,                  BrOnHasProperty,            OP_BrOnHasProper
   DEF3_WMS(CALL,                    ProfiledReturnTypeCallIExtendedFlags,    PROFILEDOP(OP_ProfiledReturnTypeCallIExtendedFlags, OP_CallIExtendedFlags), ProfiledCallIExtendedFlags)
   
 EXDEF2_WMS(A1toA1Mem,               Conv_Str,                   JavascriptConversion::ToString)
-EXDEF2_WMS(A1toA1Mem,               Conv_Prop,                  JavascriptOperators::OP_ToPropertyKey)
   DEF2_WMS(A1toA1Mem,               Conv_Obj,                   JavascriptOperators::ToObject)
 EXDEF2_WMS(A1toA1Mem,               NewUnscopablesWrapperObject,JavascriptOperators::ToUnscopablesWrapperObject)
   DEF2_WMS(A1toA1Mem,               Conv_Num,                   JavascriptOperators::ToNumber)
@@ -143,6 +142,7 @@ EXDEF2_WMS(A2toXX,                  SetComputedNameVar,         JavascriptOperat
   DEF2_WMS(XXtoA1,                  InitUndecl,                 OP_InitUndecl)
   DEF2_WMS(ELEM_RtU_to_XX,          EnsureNoRootFld,            OP_EnsureNoRootProperty)
   DEF2_WMS(ELEM_RtU_to_XX,          EnsureNoRootRedeclFld,      OP_EnsureNoRootRedeclProperty)
+EXDEF2_WMS(ELEM_RtU_to_XX,          EnsureCanDeclGloFunc,       OP_EnsureCanDeclGloFunc)
   DEF2_WMS(ELEM_C2_to_XX,           ScopedEnsureNoRedeclFld,    OP_ScopedEnsureNoRedeclProperty)
   DEF2_WMS(A1toA1Profiled,          ProfiledBeginSwitch,        PROFILEDOP(ProfiledSwitch<true>, ProfiledSwitch<false>))
   DEF2_WMS(XXtoA1Mem,               LdC_A_Null,                 JavascriptOperators::OP_LdNull)
@@ -397,6 +397,14 @@ EXDEF3_WMS(CUSTOM,                  ClearAttributes,            OP_ClearAttribut
 EXDEF3_WMS(CUSTOM,                  EmitTmpRegCount,            OP_EmitTmpRegCount, Unsigned1)
 #endif
 EXDEF2    (EMPTY,                   BeginBodyScope,             OP_BeginBodyScope)
+EXDEF2_WMS(A2toXXMem,               SpreadObjectLiteral,        JavascriptObject::SpreadObjectLiteral)
+EXDEF2_WMS(A2A2NonVartoXXMem,       Restify,                    JavascriptObject::Restify)
+EXDEF2_WMS(SET_ELEM_SLOTMem,        StPropIdArrFromVar,         OP_StPropIdArrFromVar)
+EXDEF2_WMS(SIZEtoA1MemNonVar,       NewPropIdArrForCompProps,   OP_NewPropIdArrForCompProps)
+
+EXDEF2_WMS(A1toA1Mem, Conv_Numeric, JavascriptOperators::ToNumeric)
+EXDEF2_WMS(A1toA1Mem, Incr_Num_A, JavascriptMath::Increment_Numeric)
+EXDEF2_WMS(A1toA1Mem, Decr_Num_A, JavascriptMath::Decrement_Numeric)
 
 #endif
 

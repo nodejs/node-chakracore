@@ -119,10 +119,10 @@ void EndVisitBlock(ParseNodeBlock *pnode, ByteCodeGenerator *byteCodeGenerator)
         Scope *scope = pnode->scope;
         FuncInfo *func = scope->GetFunc();
 
-        if (!(byteCodeGenerator->IsInDebugMode() || func->byteCodeFunction->IsCoroutine())
-            && scope->HasInnerScopeIndex())
+        if (!byteCodeGenerator->IsInDebugMode() &&
+            scope->HasInnerScopeIndex())
         {
-            // In debug mode (or for the generator/async function), don't release the current index, as we're giving each scope a unique index, regardless
+            // In debug mode, don't release the current index, as we're giving each scope a unique index, regardless
             // of nesting.
             Assert(scope->GetInnerScopeIndex() == func->CurrentInnerScopeIndex());
             func->ReleaseInnerScopeIndex();
@@ -155,12 +155,12 @@ void BeginVisitCatch(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 void EndVisitCatch(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 {
     Scope *scope = pnode->AsParseNodeCatch()->scope;
-    FuncInfo *func = scope->GetFunc();
 
-    if (scope->HasInnerScopeIndex() && !(byteCodeGenerator->IsInDebugMode() || func->byteCodeFunction->IsCoroutine()))
+    if (scope->HasInnerScopeIndex() && !byteCodeGenerator->IsInDebugMode())
     {
-        // In debug mode (or for the generator/async function), don't release the current index, as we're giving each scope a unique index,
+        // In debug mode, don't release the current index, as we're giving each scope a unique index,
         // regardless of nesting.
+        FuncInfo *func = scope->GetFunc();
 
         Assert(scope->GetInnerScopeIndex() == func->CurrentInnerScopeIndex());
         func->ReleaseInnerScopeIndex();
@@ -969,6 +969,18 @@ Js::RegSlot ByteCodeGenerator::EnregisterConstant(unsigned int constant)
     return loc;
 }
 
+Js::RegSlot ByteCodeGenerator::EnregisterBigIntConstant(ParseNode* pnode)
+{
+    Js::RegSlot loc = Js::Constants::NoRegister;
+    FuncInfo *top = funcInfoStack->Top();
+    if (!top->bigintToRegister.TryGetValue(pnode, &loc))
+    {
+        loc = NextConstRegister();
+        top->bigintToRegister.Add(pnode, loc);
+    }
+    return loc;
+}
+
 Js::RegSlot ByteCodeGenerator::EnregisterStringConstant(IdentPtr pid)
 {
     Js::RegSlot loc = Js::Constants::NoRegister;
@@ -1267,6 +1279,14 @@ static Js::FunctionInfo::Attributes GetFunctionInfoAttributes(ParseNodeFnc * pno
     if (pnodeFnc->IsMethod())
     {
         attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::Method);
+
+        // #sec-runtime-semantics-classdefinitionevaluation calls #sec-makeconstructor. #sec-makeconstructor
+        // creates a prototype. Thus a method that is a class constructor has a prototype and should not
+        // throw an error when new is called on the method.
+        if (!pnodeFnc->IsClassConstructor())
+        {
+            attributes = (Js::FunctionInfo::Attributes)(attributes | Js::FunctionInfo::Attributes::ErrorOnNew);
+        }
     }
     if (pnodeFnc->IsGenerator())
     {
@@ -1839,8 +1859,7 @@ bool ByteCodeGenerator::CanStackNestedFunc(FuncInfo * funcInfo, bool trace)
     Assert(!funcInfo->IsGlobalFunction());
     bool const doStackNestedFunc = !funcInfo->HasMaybeEscapedNestedFunc() && !IsInDebugMode()
         && !funcInfo->byteCodeFunction->IsCoroutine()
-        && !funcInfo->byteCodeFunction->IsModule()
-        && !Js::ScriptContext::ExceedsStackNestedFuncCount(funcInfo->root->nestedCount);
+        && !funcInfo->byteCodeFunction->IsModule();
     if (!doStackNestedFunc)
     {
         return false;
@@ -1924,9 +1943,9 @@ Scope * ByteCodeGenerator::FindScopeForSym(Scope *symScope, Scope *scope, Js::Pr
 }
 
 /* static */
-Js::OpCode ByteCodeGenerator::GetStFldOpCode(FuncInfo* funcInfo, bool isRoot, bool isLetDecl, bool isConstDecl, bool isClassMemberInit)
+Js::OpCode ByteCodeGenerator::GetStFldOpCode(FuncInfo* funcInfo, bool isRoot, bool isLetDecl, bool isConstDecl, bool isClassMemberInit, bool forceStrictModeForClassComputedPropertyName)
 {
-    return GetStFldOpCode(funcInfo->GetIsStrictMode(), isRoot, isLetDecl, isConstDecl, isClassMemberInit);
+    return GetStFldOpCode(funcInfo->GetIsStrictMode() || forceStrictModeForClassComputedPropertyName, isRoot, isLetDecl, isConstDecl, isClassMemberInit);
 }
 
 /* static */
@@ -2945,12 +2964,6 @@ FuncInfo* PostVisitFunction(ParseNodeFnc* pnodeFnc, ByteCodeGenerator* byteCodeG
         Scope::MergeParamAndBodyScopes(pnodeFnc);
         Scope::RemoveParamScope(pnodeFnc);
     }
-    else
-    {
-        // A param and body scope exist for the same function, they
-        // should both either be using scope slots or scope objects.
-        Assert_FailFast(top->bodyScope->GetIsObject() == top->paramScope->GetIsObject());
-    }
 
     FuncInfo* const parentFunc = byteCodeGenerator->TopFuncInfo();
 
@@ -3090,17 +3103,6 @@ void ByteCodeGenerator::ProcessCapturedSym(Symbol *sym)
     FuncInfo *funcChild = funcHome->GetCurrentChildFunction();
 
     Assert(sym->NeedsSlotAlloc(this, funcHome) || sym->GetIsGlobal() || sym->GetIsModuleImport() || sym->GetIsModuleExportStorage());
-
-    if (sym->GetScope()->GetScopeType() == ScopeType_FuncExpr)
-    {
-        if ((funcHome->GetParamScope() && Scope::HasSymbolName(funcHome->GetParamScope(), sym->GetName())) ||
-            (funcHome->IsBodyAndParamScopeMerged() && funcHome->GetBodyScope() && Scope::HasSymbolName(funcHome->GetBodyScope(), sym->GetName())))
-        {
-            // Make sure the function expression scope gets instantiated, since we can't merge the name symbol into another scope.
-            // Make it an object, since that's the only case the code gen can currently handle.
-            sym->GetScope()->SetIsObject();
-        }
-    }
 
     // If this is not a local property, or not all its references can be tracked, or
     // it's not scoped to the function, or we're in debug mode, disable the delayed capture optimization.
@@ -3453,7 +3455,7 @@ void VisitNestedScopes(ParseNode* pnodeScopeList, ParseNode* pnodeParent, ByteCo
             ParseNodeCatch * pnodeCatchScope = pnodeScope->AsParseNodeCatch();
             PreVisitCatch(pnodeCatchScope, byteCodeGenerator);
 
-            if (pnodeCatchScope->GetParam()->nop != knopParamPattern)
+            if (pnodeCatchScope->HasParam() && !pnodeCatchScope->HasPatternParam())
             {
                 Visit(pnodeCatchScope->GetParam(), byteCodeGenerator, prefix, postfix);
             }
@@ -3634,11 +3636,10 @@ void PreVisitCatch(ParseNodeCatch *pnodeCatch, ByteCodeGenerator *byteCodeGenera
 {
     // Push the catch scope and add the catch expression to it.
     byteCodeGenerator->StartBindCatch(pnodeCatch);
-
-    ParseNode * pnodeParam = pnodeCatch->GetParam();
-    if (pnodeParam->nop == knopParamPattern)
+    
+    if (pnodeCatch->HasPatternParam())
     {
-        ParseNodeParamPattern * pnodeParamPattern = pnodeParam->AsParseNodeParamPattern();
+        ParseNodeParamPattern * pnodeParamPattern = pnodeCatch->GetParam()->AsParseNodeParamPattern();
         Parser::MapBindIdentifier(pnodeParamPattern->pnode1, [&](ParseNodePtr item)
         {
             Symbol *sym = item->AsParseNodeVar()->sym;
@@ -3653,9 +3654,9 @@ void PreVisitCatch(ParseNodeCatch *pnodeCatch, ByteCodeGenerator *byteCodeGenera
             sym->SetIsBlockVar(true);
         });
     }
-    else
+    else if (pnodeCatch->HasParam())
     {
-        ParseNodeName * pnodeName = pnodeParam->AsParseNodeName();
+        ParseNodeName * pnodeName = pnodeCatch->GetParam()->AsParseNodeName();
         Symbol *sym = *pnodeName->GetSymRef();
         Assert(sym->GetScope() == pnodeCatch->scope);
 #if DBG_DUMP
@@ -3668,6 +3669,7 @@ void PreVisitCatch(ParseNodeCatch *pnodeCatch, ByteCodeGenerator *byteCodeGenera
         sym->SetIsCatch(true);
         pnodeName->sym = sym;
     }
+    
     // This call will actually add the nested function symbols to the enclosing function scope (which is what we want).
     AddFunctionsToScope(pnodeCatch->pnodeScopes, byteCodeGenerator);
 }
@@ -4940,6 +4942,9 @@ void AssignRegisters(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
         pnode->location = byteCodeGenerator->EnregisterDoubleConstant(pnode->AsParseNodeFloat()->dbl);
         break;
     }
+    case knopBigInt:
+        pnode->location = byteCodeGenerator->EnregisterBigIntConstant(pnode);
+        break;
     case knopStr:
         pnode->location = byteCodeGenerator->EnregisterStringConstant(pnode->AsParseNodeStr()->pid);
         break;

@@ -68,7 +68,7 @@ Instr::IsPlainInstr() const
 }
 
 bool
-Instr::DoStackArgsOpt(Func *topFunc) const
+Instr::DoStackArgsOpt() const
 {
     return this->usesStackArgumentsObject && m_func->IsStackArgsEnabled();
 }
@@ -3307,14 +3307,7 @@ bool Instr::TransfersSrcValue()
 
     // Consider: Add opcode attribute to indicate whether the opcode would use the value or not
 
-    return
-        this->GetDst() != nullptr &&
-
-        // The lack of a Src2 does not always indicate that the instr is not a transfer instr (ex: StSlotChkUndecl).
-        (this->GetSrc2() == nullptr || OpCodeAttr::NonIntTransfer(this->m_opcode)) &&
-
-        !OpCodeAttr::DoNotTransfer(this->m_opcode) &&
-        !this->CallsAccessor();
+    return this->GetDst() != nullptr && this->GetSrc2() == nullptr && !OpCodeAttr::DoNotTransfer(this->m_opcode) && !this->CallsAccessor();
 }
 
 

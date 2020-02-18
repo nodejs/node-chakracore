@@ -14,13 +14,13 @@
 #include "Library/JavascriptNumberObject.h"
 #include "Library/JavascriptStringObject.h"
 #include "Library/JavascriptBooleanObject.h"
+#include "Library/JavascriptBigIntObject.h"
 
 #include "Library/ObjectPrototypeObject.h"
 
 #include "Common/ByteSwap.h"
 #include "Library/DataView.h"
 
-#include "Library/JSONString.h"
 #include "Library/LazyJSONString.h"
 #include "Library/JSONStringBuilder.h"
 #include "Library/JSONStringifier.h"

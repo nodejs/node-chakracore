@@ -145,6 +145,7 @@ namespace UnifiedRegex
         , tempLocationOfRange(nullptr)
         , codePointAtTempLocation(0)
         , unicodeFlagPresent(false)
+        , dotAllFlagPresent(false)
         , caseInsensitiveFlagPresent(false)
         , positionAfterLastSurrogate(nullptr)
         , valueOfLastSurrogate(INVALID_CODEPOINT)
@@ -2236,7 +2237,7 @@ namespace UnifiedRegex
                         Assert(!unicodeFlagPresent);
                         Fail(JSERR_RegExpBadRange);
                     }
-
+                    
                     codePointSet.SetRange(ctAllocator, pendingRangeStart, pendingCodePoint);
                     pendingRangeStart = pendingCodePoint = INVALID_CODEPOINT;
                 }
@@ -2493,23 +2494,32 @@ namespace UnifiedRegex
             case 'W':
                 return false;
             case 'c':
-                if (!standardEncodedChars->IsLetter(ECLookahead())) //Letter set [A-Z, a-z]
-                {
-                    // Fail in unicode mode for non-letter escaped control characters according to 262 Annex-B RegExp grammar spec #prod-annexB-Term 
-                    DeferredFailIfUnicode(JSERR_RegExpInvalidEscape);
-                }
-
-                if (standardEncodedChars->IsWord(ECLookahead())) // word set [A-Z,a-z,0-9,_], terminating 0 is not a word character
+                if (standardEncodedChars->IsLetter(ECLookahead())) // terminating 0 is not a letter
                 {
                     singleton = UTC(Chars<EncodedChar>::CTU(ECLookahead()) % 32);
                     ECConsume();
                 }
                 else
                 {
-                    // If the lookahead is a non-alphanumeric and not an underscore ('_'), then treat '\' and 'c' separately.
-                    //#sec-regular-expression-patterns-semantics 
-                    ECRevert(1); //Put cursor back at 'c' and treat it as a non-escaped character.
-                    singleton = '\\';
+                    DeferredFailIfUnicode(JSERR_RegExpInvalidEscape); // Fail in unicode mode for non-letter escaped control characters according to 262 Annex-B RegExp grammar spec #prod-annexB-Term 
+
+                    if (!IsEOF())
+                    {
+                        EncodedChar ecLookahead = ECLookahead();
+                        switch (ecLookahead)
+                        {
+                        case '-':
+                        case ']':
+                            singleton = c;
+                            break;
+                        default:
+                            singleton = UTC(Chars<EncodedChar>::CTU(ecLookahead) % 32);
+                            ECConsume();
+                            break;
+                        }
+                    }
+                    else
+                        singleton = c;
                 }
                 return true;
             case 'x':
@@ -2633,7 +2643,7 @@ namespace UnifiedRegex
                 else
                 {
                     // If the lookahead is a non-alphanumeric and not an underscore ('_'), then treat '\' and 'c' separately.
-                    //#sec-regular-expression-patterns-semantics
+                    //#sec-regular-expression-patterns-semantics 
                     ECRevert(1); //Put cursor back at 'c' and treat it as a non-escaped character.
                     deferredCharNode->cs[0] = '\\';
                     return deferredCharNode;
@@ -2749,6 +2759,16 @@ namespace UnifiedRegex
                 }
                 flags = (RegexFlags)(flags | MultilineRegexFlag);
                 break;
+            case 's':
+                if (scriptContext->GetConfig()->IsES2018RegExDotAllEnabled())
+                {
+                    if ((flags & DotAllRegexFlag) != 0)
+                    {
+                        Fail(JSERR_RegExpSyntax);
+                    }
+                    flags = (RegexFlags)(flags | DotAllRegexFlag);
+                    break;
+                }
             case 'u':
                 // If we don't have unicode enabled, fall through to default
                 if (scriptContext->GetConfig()->IsES6UnicodeExtensionsEnabled())
@@ -2823,12 +2843,15 @@ namespace UnifiedRegex
                 Fail(JSERR_RegExpSyntax);
             this->unicodeFlagPresent = (flags & UnifiedRegex::UnicodeRegexFlag) == UnifiedRegex::UnicodeRegexFlag;
             this->caseInsensitiveFlagPresent = (flags & UnifiedRegex::IgnoreCaseRegexFlag) == UnifiedRegex::IgnoreCaseRegexFlag;
+            this->dotAllFlagPresent = (flags & UnifiedRegex::DotAllRegexFlag) == UnifiedRegex::DotAllRegexFlag;
             Assert(!this->unicodeFlagPresent || scriptContext->GetConfig()->IsES6UnicodeExtensionsEnabled());
+            Assert(!this->dotAllFlagPresent || scriptContext->GetConfig()->IsES2018RegExDotAllEnabled());
         }
         else
         {
             this->unicodeFlagPresent = false;
             this->caseInsensitiveFlagPresent = false;
+            this->dotAllFlagPresent = false;
         }
 
         // If this HR has been set, that means we have an earlier failure than the one caught above.
@@ -2882,6 +2905,7 @@ namespace UnifiedRegex
         Options(flags);
         this->unicodeFlagPresent = (flags & UnifiedRegex::UnicodeRegexFlag) == UnifiedRegex::UnicodeRegexFlag;
         this->caseInsensitiveFlagPresent = (flags & UnifiedRegex::IgnoreCaseRegexFlag) == UnifiedRegex::IgnoreCaseRegexFlag;
+        this->dotAllFlagPresent = (flags & UnifiedRegex::DotAllRegexFlag) == UnifiedRegex::DotAllRegexFlag;
         Assert(!this->unicodeFlagPresent || scriptContext->GetConfig()->IsES6UnicodeExtensionsEnabled());
 
         // If this HR has been set, that means we have an earlier failure than the one caught above.
@@ -2937,6 +2961,7 @@ namespace UnifiedRegex
         Options(dummyFlags);
         this->unicodeFlagPresent = (dummyFlags & UnifiedRegex::UnicodeRegexFlag) == UnifiedRegex::UnicodeRegexFlag;
         this->caseInsensitiveFlagPresent = (dummyFlags & UnifiedRegex::IgnoreCaseRegexFlag) == UnifiedRegex::IgnoreCaseRegexFlag;
+        this->dotAllFlagPresent = (dummyFlags & UnifiedRegex::DotAllRegexFlag) == UnifiedRegex::DotAllRegexFlag;
         outTotalEncodedChars = Chars<EncodedChar>::OSB(next, input);
         outTotalChars = Pos();
 
@@ -3092,7 +3117,14 @@ namespace UnifiedRegex
             switch (cc)
             {
             case '.':
-                standardChars->SetNonNewline(ctAllocator, partialPrefixSetNode->set);
+                if (this->dotAllFlagPresent)
+                {
+                    standardChars->SetFullSet(ctAllocator, partialPrefixSetNode->set);
+                }
+                else
+                {
+                    standardChars->SetNonNewline(ctAllocator, partialPrefixSetNode->set);
+                }
                 break;
             case 'S':
                 standardChars->SetNonWhitespace(ctAllocator, partialPrefixSetNode->set);
@@ -3128,7 +3160,14 @@ namespace UnifiedRegex
             switch (cc)
             {
             case '.':
-                standardChars->SetNonNewline(ctAllocator, setNode->set);
+                if (this->dotAllFlagPresent)
+                {
+                    standardChars->SetFullSet(ctAllocator, setNode->set);
+                }
+                else
+                {
+                    standardChars->SetNonNewline(ctAllocator, setNode->set);
+                }
                 break;
             case 'S':
                 standardChars->SetNonWhitespace(ctAllocator, setNode->set);

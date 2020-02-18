@@ -180,6 +180,12 @@ namespace Js
     }
 
     LPCUTF8
+        ParseableFunctionInfo::GetToStringSource(const  char16* reason) const
+    {
+        return this->GetUtf8SourceInfo()->GetSource(reason == nullptr ? _u("ParseableFunctionInfo::GetToStringSource") : reason) + this->PrintableStartOffset();
+    }
+
+    LPCUTF8
     ParseableFunctionInfo::GetStartOfDocument(const char16* reason) const
     {
         return this->GetUtf8SourceInfo()->GetSource(reason == nullptr ? _u("ParseableFunctionInfo::GetStartOfDocument") : reason);
@@ -207,6 +213,12 @@ namespace Js
     ParseableFunctionInfo::StartOffset() const
     {
         return this->m_cbStartOffset;
+    }
+
+    uint
+    ParseableFunctionInfo::PrintableStartOffset() const
+    {
+        return this->m_cbStartPrintOffset;
     }
 
     void ParseableFunctionInfo::RegisterFuncToDiag(ScriptContext * scriptContext, char16 const * pszTitle)
@@ -1510,6 +1522,7 @@ namespace Js
         CopyDeferParseField(m_lineNumber);
         CopyDeferParseField(m_columnNumber);
         CopyDeferParseField(m_cbStartOffset);
+        CopyDeferParseField(m_cbStartPrintOffset);
         CopyDeferParseField(m_cbLength);
 
         this->CopyNestedArray(other);
@@ -1611,6 +1624,7 @@ namespace Js
       m_cbLength(0),
       m_cchStartOffset(0),
       m_cbStartOffset(0),
+      m_cbStartPrintOffset(0),
       m_lineNumber(0),
       m_columnNumber(0),
       m_isEval(false),
@@ -2377,6 +2391,24 @@ namespace Js
                         grfscr &= ~fscrDeferredFncIsMethod;
                     }
 
+                    if (funcBody->IsAsync())
+                    {
+                        grfscr |= fscrDeferredFncIsAsync;
+                    }
+                    else
+                    {
+                        grfscr &= ~fscrDeferredFncIsAsync;
+                    }
+
+                    if (funcBody->IsGenerator())
+                    {
+                        grfscr |= fscrDeferredFncIsGenerator;
+                    }
+                    else
+                    {
+                        grfscr &= ~fscrDeferredFncIsGenerator;
+                    }
+
                     if (isDebugOrAsmJsReparse)
                     {
                         // Disable deferred parsing if not DeferNested, or doing a debug/asm.js re-parse
@@ -2809,7 +2841,9 @@ namespace Js
             {
                 Js::Throw::OutOfMemory();
             }
+            Assert(node->cbStringMin <= node->cbMin);
             this->m_cbStartOffset = (uint)cbMin;
+            this->m_cbStartPrintOffset = (uint)node->cbStringMin;
             this->m_cbLength = (uint)lengthInBytes;
 
             Assert(this->m_utf8SourceInfo != nullptr);
@@ -2867,6 +2901,7 @@ namespace Js
             this->m_columnNumber = 0;
 
             this->m_cbStartOffset = 0;
+            this->m_cbStartPrintOffset = 0;
             this->m_cbLength = 0;
 
             this->m_utf8SourceHasBeenSet = true;
@@ -4316,6 +4351,13 @@ namespace Js
         this->RecordConstant(location, str);
     }
 
+    void FunctionBody::RecordBigIntConstant(RegSlot location, LPCOLESTR psz, uint32 cch, bool isNegative)
+    {
+        ScriptContext *scriptContext = this->GetScriptContext();
+        Var bigintConst = JavascriptBigInt::Create(psz, cch, isNegative, scriptContext);
+        this->RecordConstant(location, bigintConst);
+    }
+
     void FunctionBody::RecordFloatConstant(RegSlot location, double d)
     {
         ScriptContext *scriptContext = this->GetScriptContext();
@@ -4504,13 +4546,17 @@ namespace Js
             }
             Output::Print(_u("\n\n  Line %3d: "), line + 1);
             // Need to match up cchStartOffset to appropriate cbStartOffset given function's cbStartOffset and cchStartOffset
-            size_t i = utf8::CharacterIndexToByteIndex(source, sourceInfo->GetCbLength(), cchStartOffset, this->m_cbStartOffset, this->m_cchStartOffset);
+            size_t utf8SrcStartIdx = utf8::CharacterIndexToByteIndex(source, sourceInfo->GetCbLength(), cchStartOffset, this->m_cbStartOffset, this->m_cchStartOffset);
 
-            size_t lastOffset = StartOffset() + LengthInBytes();
-            for (;i < lastOffset && source[i] != '\n' && source[i] != '\r'; i++)
+            size_t utf8SrcEndIdx = StartOffset() + LengthInBytes();
+            char16* utf16Buf = HeapNewArray(char16, utf8SrcEndIdx - utf8SrcStartIdx + 2); 
+            size_t utf16BufSz = utf8::DecodeUnitsIntoAndNullTerminateNoAdvance(utf16Buf, source + utf8SrcStartIdx, source + utf8SrcEndIdx, utf8::DecodeOptions::doDefault);
+            Assert(utf16BufSz <= utf8SrcEndIdx - utf8SrcStartIdx);
+            for (size_t i = 0; i < utf16BufSz && utf16Buf[i] != _u('\n') && utf16Buf[i] != _u('\r'); i++)
             {
-                Output::Print(_u("%C"), source[i]);
+                Output::Print(_u("%lc"), utf16Buf[i]);
             }
+            HeapDeleteArray(utf8SrcEndIdx - utf8SrcStartIdx + 2, utf16Buf);
             Output::Print(_u("\n"));
             Output::Print(_u("  Col %4d:%s^\n"), col + 1, ((col+1)<10000) ? _u(" ") : _u(""));
 
@@ -5525,7 +5571,7 @@ namespace Js
 
     ScopeType FrameDisplay::GetScopeType(void* scope)
     {
-        if(Js::ActivationObject::Is(scope))
+        if(Js::VarIs<Js::ActivationObject>(scope))
         {
             return ScopeType_ActivationObject;
         }
@@ -5537,7 +5583,7 @@ namespace Js
     }
 
     // ScopeSlots
-    bool ScopeSlots::IsDebuggerScopeSlotArray() 
+    bool ScopeSlots::IsDebuggerScopeSlotArray()
     {
         return DebuggerScope::Is(slotArray[ScopeMetadataSlotIndex]);
     }
@@ -6497,7 +6543,7 @@ namespace Js
         AssertMsg(!this->byteCodeBlock || !this->IsWasmFunction(), "We should never reset the bytecode block for Wasm");
         this->byteCodeBlock = nullptr;
 
-        // Also, remove the function body from the source info to prevent any further processing 
+        // Also, remove the function body from the source info to prevent any further processing
         // of the function such as attempts to set breakpoints.
         if (GetIsFuncRegistered())
         {
@@ -8196,7 +8242,7 @@ namespace Js
     }
 #endif
 
-   
+
     void EntryPointInfo::PinTypeRefs(ScriptContext* scriptContext)
     {
         NativeEntryPointData * nativeEntryPointData = this->GetNativeEntryPointData();
@@ -8287,7 +8333,7 @@ namespace Js
         if (jitTransferData->equivalentTypeGuardOffsets)
         {
             // InstallGuards
-            int guardCount = jitTransferData->equivalentTypeGuardOffsets->count;            
+            int guardCount = jitTransferData->equivalentTypeGuardOffsets->count;
             EquivalentTypeCache* cache = this->nativeEntryPointData->EnsureEquivalentTypeCache(guardCount, scriptContext, this);
             char * nativeDataBuffer = this->GetOOPNativeEntryPointData()->GetNativeDataBuffer();
             for (int i = 0; i < guardCount; i++)
@@ -8796,7 +8842,7 @@ namespace Js
             this->OnCleanup(isShutdown);
 
             if (this->nativeEntryPointData)
-            {                
+            {
                 this->nativeEntryPointData->Cleanup(GetScriptContext(), isShutdown, false);
                 this->nativeEntryPointData = nullptr;
             }
@@ -8876,7 +8922,7 @@ namespace Js
     void EntryPointInfo::SetTJCodeSize(ptrdiff_t size)
     {
         Assert(isAsmJsFunction);
-        // TODO: We don't need the whole NativeEntryPointData to just hold just the code and size for TJ mode 
+        // TODO: We don't need the whole NativeEntryPointData to just hold just the code and size for TJ mode
         this->EnsureNativeEntryPointData()->SetTJCodeSize(size);
     }
 

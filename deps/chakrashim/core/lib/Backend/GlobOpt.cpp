@@ -87,6 +87,7 @@ GlobOpt::GlobOpt(Func * func)
     updateInductionVariableValueNumber(false),
     isPerformingLoopBackEdgeCompensation(false),
     currentRegion(nullptr),
+    auxSlotPtrSyms(nullptr),
     changedSymsAfterIncBailoutCandidate(nullptr),
     doTypeSpec(
         !IsTypeSpecPhaseOff(func)),
@@ -174,7 +175,7 @@ GlobOpt::Optimize()
 
         // Still need to run the dead store phase to calculate the live reg on back edge
         this->BackwardPass(Js::DeadStorePhase);
-        CannotAllocateArgumentsObjectOnStack();
+        CannotAllocateArgumentsObjectOnStack(nullptr);
         return;
     }
 
@@ -353,6 +354,8 @@ GlobOpt::ForwardPass()
     // changedSymsAfterIncBailoutCandidate helps track building incremental bailout in ForwardPass
     this->changedSymsAfterIncBailoutCandidate = JitAnew(alloc, BVSparse<JitArenaAllocator>, alloc);
 
+    this->auxSlotPtrSyms = JitAnew(alloc, BVSparse<JitArenaAllocator>, alloc);
+
 #if DBG
     this->byteCodeUsesBeforeOpt = JitAnew(this->alloc, BVSparse<JitArenaAllocator>, this->alloc);
     if (Js::Configuration::Global.flags.Trace.IsEnabled(Js::FieldCopyPropPhase) && this->DoFunctionFieldCopyProp())
@@ -434,6 +437,7 @@ GlobOpt::ForwardPass()
 
     // this->alloc will be freed right after return, no need to free it here
     this->changedSymsAfterIncBailoutCandidate = nullptr;
+    this->auxSlotPtrSyms = nullptr;
 
     END_CODEGEN_PHASE(this->func, Js::ForwardPhase);
 }
@@ -457,7 +461,7 @@ GlobOpt::OptBlock(BasicBlock *block)
             {
                 loop->fieldPRESymStores->Or(loop->parent->fieldPRESymStores);
             }
-
+            
             if (!this->IsLoopPrePass() && DoFieldPRE(loop))
             {
                 // Note: !IsLoopPrePass means this was a root loop pre-pass. FieldPre() is called once per loop.
@@ -486,7 +490,7 @@ GlobOpt::OptBlock(BasicBlock *block)
     {
         this->KillAllFields(CurrentBlockData()->liveFields);
     }
-
+    
     this->tempAlloc->Reset();
 
     if(loop && block->isLoopHeader)
@@ -598,11 +602,6 @@ GlobOpt::OptBlock(BasicBlock *block)
                     this->tempBv->And(block->globOptData.liveFloat64Syms);
                     this->tempBv->And(liveOnBackEdge);
                     this->ToFloat64(this->tempBv, block->loop->landingPad);
-
-                    if (block->loop->symsRequiringCompensationToMergedValueInfoMap)
-                    {
-                        InsertValueCompensation(block, succ, block->loop->symsRequiringCompensationToMergedValueInfoMap);
-                    }
 
                     // Now that we're done with the liveFields within this loop, trim the set to those syms
                     // that the backward pass told us were live out of the loop.
@@ -891,7 +890,7 @@ GlobOpt::ToTypeSpec(BVSparse<JitArenaAllocator> *bv, BasicBlock *block, IRType t
         // instruction itself should disable arguments object optimization.
         if(block->globOptData.argObjSyms && block->globOptData.IsArgumentsSymID(id))
         {
-            CannotAllocateArgumentsObjectOnStack();
+            CannotAllocateArgumentsObjectOnStack(nullptr);
         }
 
         if (block->globOptData.liveVarSyms->Test(id))
@@ -972,7 +971,7 @@ BOOL GlobOpt::PRE::PreloadPRECandidate(Loop *loop, GlobHashBucket* candidate)
             // We'll have to add a def instruction for the object sym in the landing pad, and then we can continue
             // pre-loading the current PRE candidate.
             // Case in point:
-            // $L1
+            // $L1            
             //                value|symStore
             //      t1 = o.x    (v1|t3)
             //      t2 = t1.y   (v2|t4) <-- t1 is not live in the loop landing pad
@@ -1032,15 +1031,15 @@ BOOL GlobOpt::PRE::PreloadPRECandidate(Loop *loop, GlobHashBucket* candidate)
     ldInstr->SetDst(IR::RegOpnd::New(symStore->AsStackSym(), TyVar, this->globOpt->func));
     loop->fieldPRESymStores->Set(symStore->m_id);
     landingPad->globOptData.liveVarSyms->Set(symStore->m_id);
-    
+
     Value * objPtrValue = landingPad->globOptData.FindValue(objPtrSym);
 
     objPtrCopyPropSym = objPtrCopyPropSym ? objPtrCopyPropSym : objPtrValue ? landingPad->globOptData.GetCopyPropSym(objPtrSym, objPtrValue) : nullptr;
     if (objPtrCopyPropSym)
     {
-        // If we inserted T4 = T1.y, and T3 is the copy prop sym for T1 in the landing pad, we need T3.y
-        // to be live on back edges to have the merge produce a value for T3.y. Having a value for T1.y
-        // produced from the merge is not enough as the T1.y in the loop will get obj-ptr-copy-propped to
+        // If we inserted T4 = T1.y, and T3 is the copy prop sym for T1 in the landing pad, we need T3.y 
+        // to be live on back edges to have the merge produce a value for T3.y. Having a value for T1.y 
+        // produced from the merge is not enough as the T1.y in the loop will get obj-ptr-copy-propped to 
         // T3.y
 
         // T3.y
@@ -1156,21 +1155,14 @@ void GlobOpt::FieldPRE(Loop *loop)
 
 void GlobOpt::InsertValueCompensation(
     BasicBlock *const predecessor,
-    BasicBlock *const successor,
-    const SymToValueInfoMap *symsRequiringCompensationToMergedValueInfoMap)
+    const SymToValueInfoMap &symsRequiringCompensationToMergedValueInfoMap)
 {
     Assert(predecessor);
-    Assert(successor);
-    AssertOrFailFast(predecessor != successor);
-    Assert(symsRequiringCompensationToMergedValueInfoMap->Count() != 0);
+    Assert(symsRequiringCompensationToMergedValueInfoMap.Count() != 0);
 
     IR::Instr *insertBeforeInstr = predecessor->GetLastInstr();
     Func *const func = insertBeforeInstr->m_func;
     bool setLastInstrInPredecessor;
-    // If this is a loop back edge, and the successor has been completed, don't attempt to update its block data.
-    // The update is unnecessary, and the data has likely been freed.
-    bool updateSuccessorBlockData = !this->isPerformingLoopBackEdgeCompensation || successor->GetDataUseCount() > 0;
-
     if(insertBeforeInstr->IsBranchInstr() || insertBeforeInstr->m_opcode == Js::OpCode::BailTarget)
     {
         // Don't insert code between the branch and the corresponding ByteCodeUses instructions
@@ -1189,7 +1181,7 @@ void GlobOpt::InsertValueCompensation(
     }
 
     GlobOptBlockData &predecessorBlockData = predecessor->globOptData;
-    GlobOptBlockData &successorBlockData = successor->globOptData;
+    GlobOptBlockData &successorBlockData = *CurrentBlockData();
     struct DelayChangeValueInfo
     {
         Value* predecessorValue;
@@ -1205,7 +1197,7 @@ void GlobOpt::InsertValueCompensation(
         }
     };
     JsUtil::List<DelayChangeValueInfo, ArenaAllocator> delayChangeValueInfo(alloc);
-    for(auto it = symsRequiringCompensationToMergedValueInfoMap->GetIterator(); it.IsValid(); it.MoveNext())
+    for(auto it = symsRequiringCompensationToMergedValueInfoMap.GetIterator(); it.IsValid(); it.MoveNext())
     {
         const auto &entry = it.Current();
         Sym *const sym = entry.Key();
@@ -1248,7 +1240,7 @@ void GlobOpt::InsertValueCompensation(
         {
             IR::Instr *const newInstr =
                 IR::Instr::New(
-                    Js::OpCode::Ld_A,
+                    Js::OpCode::Ld_I4,
                     IR::RegOpnd::New(mergedHeadSegmentLengthSym, mergedHeadSegmentLengthSym->GetType(), func),
                     IR::RegOpnd::New(predecessorHeadSegmentLengthSym, predecessorHeadSegmentLengthSym->GetType(), func),
                     func);
@@ -1261,33 +1253,29 @@ void GlobOpt::InsertValueCompensation(
             // Merge the head segment length value
             Assert(predecessorBlockData.liveVarSyms->Test(predecessorHeadSegmentLengthSym->m_id));
             predecessorBlockData.liveVarSyms->Set(mergedHeadSegmentLengthSym->m_id);
+            successorBlockData.liveVarSyms->Set(mergedHeadSegmentLengthSym->m_id);
             Value *const predecessorHeadSegmentLengthValue =
                 predecessorBlockData.FindValue(predecessorHeadSegmentLengthSym);
             Assert(predecessorHeadSegmentLengthValue);
             predecessorBlockData.SetValue(predecessorHeadSegmentLengthValue, mergedHeadSegmentLengthSym);
-
-            if (updateSuccessorBlockData)
+            Value *const mergedHeadSegmentLengthValue = successorBlockData.FindValue(mergedHeadSegmentLengthSym);
+            if(mergedHeadSegmentLengthValue)
             {
-                successorBlockData.liveVarSyms->Set(mergedHeadSegmentLengthSym->m_id);
-                Value *const mergedHeadSegmentLengthValue = successorBlockData.FindValue(mergedHeadSegmentLengthSym);
-                if(mergedHeadSegmentLengthValue)
+                Assert(mergedHeadSegmentLengthValue->GetValueNumber() != predecessorHeadSegmentLengthValue->GetValueNumber());
+                if(predecessorHeadSegmentLengthValue->GetValueInfo() != mergedHeadSegmentLengthValue->GetValueInfo())
                 {
-                    Assert(mergedHeadSegmentLengthValue->GetValueNumber() != predecessorHeadSegmentLengthValue->GetValueNumber());
-                    if(predecessorHeadSegmentLengthValue->GetValueInfo() != mergedHeadSegmentLengthValue->GetValueInfo())
-                    {
-                        mergedHeadSegmentLengthValue->SetValueInfo(
-                            ValueInfo::MergeLikelyIntValueInfo(
-                                this->alloc,
-                                mergedHeadSegmentLengthValue,
-                                predecessorHeadSegmentLengthValue,
-                                mergedHeadSegmentLengthValue->GetValueInfo()->Type()
-                                    .Merge(predecessorHeadSegmentLengthValue->GetValueInfo()->Type())));
-                    }
+                    mergedHeadSegmentLengthValue->SetValueInfo(
+                        ValueInfo::MergeLikelyIntValueInfo(
+                            this->alloc,
+                            mergedHeadSegmentLengthValue,
+                            predecessorHeadSegmentLengthValue,
+                            mergedHeadSegmentLengthValue->GetValueInfo()->Type()
+                                .Merge(predecessorHeadSegmentLengthValue->GetValueInfo()->Type())));
                 }
-                else
-                {
-                    successorBlockData.SetValue(CopyValue(predecessorHeadSegmentLengthValue), mergedHeadSegmentLengthSym);
-                }
+            }
+            else
+            {
+                successorBlockData.SetValue(CopyValue(predecessorHeadSegmentLengthValue), mergedHeadSegmentLengthSym);
             }
         }
 
@@ -1308,31 +1296,27 @@ void GlobOpt::InsertValueCompensation(
             // Merge the length value
             Assert(predecessorBlockData.liveVarSyms->Test(predecessorLengthSym->m_id));
             predecessorBlockData.liveVarSyms->Set(mergedLengthSym->m_id);
+            successorBlockData.liveVarSyms->Set(mergedLengthSym->m_id);
             Value *const predecessorLengthValue = predecessorBlockData.FindValue(predecessorLengthSym);
             Assert(predecessorLengthValue);
             predecessorBlockData.SetValue(predecessorLengthValue, mergedLengthSym);
-
-            if (updateSuccessorBlockData)
+            Value *const mergedLengthValue = successorBlockData.FindValue(mergedLengthSym);
+            if(mergedLengthValue)
             {
-                successorBlockData.liveVarSyms->Set(mergedLengthSym->m_id);
-                Value *const mergedLengthValue = successorBlockData.FindValue(mergedLengthSym);
-                if(mergedLengthValue)
+                Assert(mergedLengthValue->GetValueNumber() != predecessorLengthValue->GetValueNumber());
+                if(predecessorLengthValue->GetValueInfo() != mergedLengthValue->GetValueInfo())
                 {
-                    Assert(mergedLengthValue->GetValueNumber() != predecessorLengthValue->GetValueNumber());
-                    if(predecessorLengthValue->GetValueInfo() != mergedLengthValue->GetValueInfo())
-                    {
-                        mergedLengthValue->SetValueInfo(
-                            ValueInfo::MergeLikelyIntValueInfo(
-                                this->alloc,
-                                mergedLengthValue,
-                                predecessorLengthValue,
-                                mergedLengthValue->GetValueInfo()->Type().Merge(predecessorLengthValue->GetValueInfo()->Type())));
-                    }
+                    mergedLengthValue->SetValueInfo(
+                        ValueInfo::MergeLikelyIntValueInfo(
+                            this->alloc,
+                            mergedLengthValue,
+                            predecessorLengthValue,
+                            mergedLengthValue->GetValueInfo()->Type().Merge(predecessorLengthValue->GetValueInfo()->Type())));
                 }
-                else
-                {
-                    successorBlockData.SetValue(CopyValue(predecessorLengthValue), mergedLengthSym);
-                }
+            }
+            else
+            {
+                successorBlockData.SetValue(CopyValue(predecessorLengthValue), mergedLengthSym);
             }
         }
 
@@ -1521,7 +1505,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
 
         if (instr->m_func->GetJITFunctionBody()->GetInParamsCount() != 1 && !instr->m_func->IsStackArgsEnabled())
         {
-            CannotAllocateArgumentsObjectOnStack();
+            CannotAllocateArgumentsObjectOnStack(instr->m_func);
         }
         else
         {
@@ -1536,7 +1520,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
         // In the debug mode, we don't want to optimize away the aliases. Since we may have to show them on the inspection.
         if (((!AreFromSameBytecodeFunc(src1->AsRegOpnd(), dst->AsRegOpnd()) || this->currentBlock->loop) && instr->m_opcode != Js::OpCode::BytecodeArgOutCapture) || this->func->IsJitInDebugMode())
         {
-            CannotAllocateArgumentsObjectOnStack();
+            CannotAllocateArgumentsObjectOnStack(instr->m_func);
             return;
         }
         if(!dst->AsRegOpnd()->GetStackSym()->m_nonEscapingArgObjAlias)
@@ -1559,7 +1543,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
     }
 
     SymID id = 0;
-
+    
     switch(instr->m_opcode)
     {
     case Js::OpCode::LdElemI_A:
@@ -1570,7 +1554,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
         if (indexOpnd && CurrentBlockData()->IsArgumentsSymID(indexOpnd->m_sym->m_id))
         {
             // Pathological test cases such as a[arguments]
-            CannotAllocateArgumentsObjectOnStack();
+            CannotAllocateArgumentsObjectOnStack(instr->m_func);
             return;
         }
 
@@ -1597,6 +1581,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
         if (CurrentBlockData()->IsArgumentsOpnd(src1))
         {
             instr->usesStackArgumentsObject = true;
+            instr->m_func->unoptimizableArgumentsObjReference++;
         }
 
         if (CurrentBlockData()->IsArgumentsOpnd(src1) &&
@@ -1616,6 +1601,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                     if (builtinFunction == Js::BuiltinFunction::JavascriptFunction_Apply)
                     {
                         CurrentBlockData()->ClearArgumentsSym(src1->AsRegOpnd());
+                        instr->m_func->unoptimizableArgumentsObjReference--;
                     }
                 }
                 else if (builtinOpnd->IsRegOpnd())
@@ -1623,6 +1609,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                     if (builtinOpnd->AsRegOpnd()->m_sym->m_builtInIndex == Js::BuiltinFunction::JavascriptFunction_Apply)
                     {
                         CurrentBlockData()->ClearArgumentsSym(src1->AsRegOpnd());
+                        instr->m_func->unoptimizableArgumentsObjReference--;
                     }
                 }
             }
@@ -1659,7 +1646,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                             WritePerfHint(PerfHints::HeapArgumentsCreated, instr->m_func, instr->GetByteCodeOffset());
                         }
 #endif
-                        CannotAllocateArgumentsObjectOnStack();
+                        CannotAllocateArgumentsObjectOnStack(instr->m_func);
                         return;
                     }
                 }
@@ -1677,7 +1664,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                             WritePerfHint(PerfHints::HeapArgumentsCreated, instr->m_func, instr->GetByteCodeOffset());
                         }
 #endif
-                        CannotAllocateArgumentsObjectOnStack();
+                        CannotAllocateArgumentsObjectOnStack(instr->m_func);
                         return;
                     }
                 }
@@ -1696,7 +1683,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                             WritePerfHint(PerfHints::HeapArgumentsModification, instr->m_func, instr->GetByteCodeOffset());
                         }
 #endif
-                        CannotAllocateArgumentsObjectOnStack();
+                        CannotAllocateArgumentsObjectOnStack(instr->m_func);
                         return;
                     }
                 }
@@ -1710,7 +1697,7 @@ GlobOpt::OptArguments(IR::Instr *instr)
                             WritePerfHint(PerfHints::HeapArgumentsModification, instr->m_func, instr->GetByteCodeOffset());
                         }
 #endif
-                        CannotAllocateArgumentsObjectOnStack();
+                        CannotAllocateArgumentsObjectOnStack(instr->m_func);
                         return;
                     }
                     CurrentBlockData()->ClearArgumentsSym(dst->AsRegOpnd());
@@ -1859,10 +1846,6 @@ GlobOpt::IsAllowedForMemOpt(IR::Instr* instr, bool isMemset, IR::RegOpnd *baseOp
             TRACE_MEMOP_VERBOSE(loop, instr, _u("Missing bounds check optimization"));
             return false;
         }
-    }
-    else
-    {
-        return false;
     }
 
     if (!baseValueType.IsTypedArray())
@@ -2099,7 +2082,6 @@ bool GlobOpt::CollectMemcopyStElementI(IR::Instr *instr, Loop *loop)
 
     // Consider: Can we remove the count field?
     memcopyInfo->count++;
-    AssertOrFailFast(memcopyInfo->count <= 1);
     memcopyInfo->base = baseSymID;
 
     return true;
@@ -2161,46 +2143,27 @@ GlobOpt::CollectMemOpInfo(IR::Instr *instrBegin, IR::Instr *instr, Value *src1Va
             return false;
         }
         break;
-    case Js::OpCode::Sub_I4:
+    case Js::OpCode::Decr_A:
         isIncr = false;
+    case Js::OpCode::Incr_A:
+        isChangedByOne = true;
+        goto MemOpCheckInductionVariable;
+    case Js::OpCode::Sub_I4:
+    case Js::OpCode::Sub_A:
+        isIncr = false;
+    case Js::OpCode::Add_A:
     case Js::OpCode::Add_I4:
     {
-        // The only case in which these OpCodes can contribute to an inductionVariableChangeInfo
-        // is when the induction variable is being modified and overwritten aswell (ex: j = j + 1)
-        // and not when the induction variable is modified but not overwritten (ex: k = j + 1).
-        // This can either be detected in IR as
-        // s1     = Add_I4 s1     1  // Case #1, can be seen with "j++".
-        // or as
-        // s4(s2) = Add_I4 s3(s1) 1  // Case #2, can be see with "j = j + 1".
-        // s1     = Ld_A   s2
-        bool isInductionVar = false;
-        IR::Instr* nextInstr = instr->m_next;
-        if (
-            // Checks for Case #1 and Case #2
-            instr->GetDst()->GetStackSym() != nullptr &&
-            instr->GetDst()->IsRegOpnd() &&
-            (
-                // Checks for Case #1
-                (instr->GetDst()->GetStackSym() == instr->GetSrc1()->GetStackSym()) ||
-
-                // Checks for Case #2
-                (nextInstr&& nextInstr->m_opcode == Js::OpCode::Ld_A &&
-                 nextInstr->GetSrc1()->IsRegOpnd() &&
-                 nextInstr->GetDst()->IsRegOpnd() &&
-                 GetVarSymID(instr->GetDst()->GetStackSym()) == nextInstr->GetSrc1()->GetStackSym()->m_id &&
-                 GetVarSymID(instr->GetSrc1()->GetStackSym()) == nextInstr->GetDst()->GetStackSym()->m_id)
-            )
-        )
+MemOpCheckInductionVariable:
+        StackSym *sym = instr->GetSrc1()->GetStackSym();
+        if (!sym)
         {
-            isInductionVar = true;
+            sym = instr->GetSrc2()->GetStackSym();
         }
-        
-        // Even if dstIsInductionVar then dst == src1 so it's safe to use src1 as the induction sym always.
-        StackSym* sym = instr->GetSrc1()->GetStackSym();
 
         SymID inductionSymID = GetVarSymID(sym);
 
-        if (isInductionVar && IsSymIDInductionVariable(inductionSymID, this->currentBlock->loop))
+        if (IsSymIDInductionVariable(inductionSymID, this->currentBlock->loop))
         {
             if (!isChangedByOne)
             {
@@ -2258,13 +2221,7 @@ GlobOpt::CollectMemOpInfo(IR::Instr *instrBegin, IR::Instr *instr, Value *src1Va
                 {
                     Loop::InductionVariableChangeInfo inductionVariableChangeInfo = { 0, 0 };
                     inductionVariableChangeInfo = loop->memOpInfo->inductionVariableChangeInfoMap->Lookup(inductionSymID, inductionVariableChangeInfo);
-                    
-                    // If inductionVariableChangeInfo.unroll has been invalidated, do
-                    // not modify the Js::Constants::InvalidLoopUnrollFactor value
-                    if (inductionVariableChangeInfo.unroll != Js::Constants::InvalidLoopUnrollFactor)
-                    {
-                        inductionVariableChangeInfo.unroll++;
-                    }
+                    inductionVariableChangeInfo.unroll++;
                     inductionVariableChangeInfo.isIncremental = isIncr;
                     loop->memOpInfo->inductionVariableChangeInfoMap->Item(inductionSymID, inductionVariableChangeInfo);
                 }
@@ -2302,27 +2259,6 @@ GlobOpt::CollectMemOpInfo(IR::Instr *instrBegin, IR::Instr *instr, Value *src1Va
             }
         }
         NEXT_INSTR_IN_RANGE;
-        IR::Instr* prevInstr = instr->m_prev;
-
-        // If an instr where the dst is an induction variable (and thus is being written to) is not caught by a case in the above
-        // switch statement (which implies that this instr does not contributes to a inductionVariableChangeInfo) and in the default
-        // case does not set doMemOp to false (which implies that this instr does not invalidate this MemOp), then FailFast as we
-        // should not be performing a MemOp under these conditions. 
-        AssertOrFailFast(!instr->GetDst() || instr->m_opcode == Js::OpCode::IncrLoopBodyCount || !loop->memOpInfo ||
-
-            // Refer to "Case #2" described above in this function. For the following IR:
-            // Line #1: s4(s2) = Add_I4 s3(s1) 1
-            // Line #2: s3(s1) = Ld_A   s4(s2)
-            // do not consider line #2 as a violating instr
-            (instr->m_opcode == Js::OpCode::Ld_I4 &&
-                prevInstr && (prevInstr->m_opcode == Js::OpCode::Add_I4 || prevInstr->m_opcode == Js::OpCode::Sub_I4) &&
-                instr->GetSrc1()->IsRegOpnd() &&
-                instr->GetDst()->IsRegOpnd() &&
-                prevInstr->GetDst()->IsRegOpnd() &&
-                instr->GetDst()->GetStackSym() == prevInstr->GetSrc1()->GetStackSym() &&
-                instr->GetSrc1()->GetStackSym() == prevInstr->GetDst()->GetStackSym()) ||
-
-            !loop->memOpInfo->inductionVariableChangeInfoMap->ContainsKey(GetVarSymID(instr->GetDst()->GetStackSym())));
     }
 
     return true;
@@ -2467,7 +2403,7 @@ GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
 
     //StackArguments Optimization - We bail out if the index is out of range of actuals.
     if ((instr->m_opcode == Js::OpCode::LdElemI_A || instr->m_opcode == Js::OpCode::TypeofElem) &&
-        instr->DoStackArgsOpt(this->func) && !this->IsLoopPrePass())
+        instr->DoStackArgsOpt() && !this->IsLoopPrePass())
     {
         GenerateBailAtOperation(&instr, IR::BailOnStackArgsOutOfActualsRange);
     }
@@ -2509,6 +2445,7 @@ GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
     OptimizeChecks(instr);
     OptArraySrc(&instr, &src1Val, &src2Val);
     OptNewScObject(&instr, src1Val);
+    OptStackArgLenAndConst(instr, &src1Val);
 
     instr = this->OptPeep(instr, src1Val, src2Val);
 
@@ -2683,7 +2620,7 @@ GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
         !(instr->IsJitProfilingInstr()) &&
         this->currentBlock->loop && !IsLoopPrePass() &&
         !func->IsJitInDebugMode() &&
-        !func->IsMemOpDisabled() &&
+        (func->HasProfileInfo() && !func->GetReadOnlyProfileInfo()->IsMemOpDisabled()) &&
         this->currentBlock->loop->doMemOp)
     {
         CollectMemOpInfo(instrPrev, instr, src1Val, src2Val);
@@ -2754,54 +2691,6 @@ GlobOpt::OptInstr(IR::Instr *&instr, bool* isInstrRemoved)
 }
 
 bool
-GlobOpt::IsNonNumericRegOpnd(IR::RegOpnd *opnd, bool inGlobOpt, bool *isSafeToTransferInPrepass /*=nullptr*/) const
-{
-    if (opnd == nullptr)
-    {
-        return false;
-    }
-
-    if (opnd->m_sym->m_isNotNumber)
-    {
-        return true;
-    }
-
-    if (!inGlobOpt)
-    {
-        return false;
-    }
-
-    if (opnd->GetValueType().IsNumber() || currentBlock->globOptData.IsTypeSpecialized(opnd->m_sym))
-    {
-        if (!this->IsLoopPrePass())
-        {
-            return false;
-        }
-
-        Value * opndValue = this->currentBlock->globOptData.FindValue(opnd->m_sym);
-        ValueInfo * opndValueInfo = opndValue ? opndValue->GetValueInfo() : nullptr;
-        if (!opndValueInfo)
-        {
-            return true;
-        }
-
-        bool isSafeToTransfer = this->IsSafeToTransferInPrepass(opnd->m_sym, opndValueInfo);
-        if (isSafeToTransferInPrepass != nullptr)
-        {
-            *isSafeToTransferInPrepass = isSafeToTransfer;
-        }
-        if (this->prePassLoop->preservesNumberValue->Test(opnd->m_sym->m_id))
-        {
-            return false;
-        }
-
-        return !isSafeToTransfer;
-    }
-
-    return true;
-}
-
-bool
 GlobOpt::OptTagChecks(IR::Instr *instr)
 {
     if (PHASE_OFF(Js::OptTagChecksPhase, this->func) || !this->DoTagChecks())
@@ -2858,14 +2747,11 @@ GlobOpt::OptTagChecks(IR::Instr *instr)
                     ChangeValueType(nullptr, value, valueType.SetCanBeTaggedValue(false), true /*preserveSubClassInfo*/);
                     return false;
                 }
-                if (!this->IsLoopPrePass())
+                if (this->byteCodeUses)
                 {
-                    if (this->byteCodeUses)
-                    {
-                        this->InsertByteCodeUses(instr);
-                    }
-                    this->currentBlock->RemoveInstr(instr);
+                    this->InsertByteCodeUses(instr);
                 }
+                this->currentBlock->RemoveInstr(instr);
                 return true;
             }
 
@@ -2964,6 +2850,12 @@ GlobOpt::OptDst(
         if (opnd->IsSymOpnd() && opnd->AsSymOpnd()->IsPropertySymOpnd())
         {
             this->FinishOptPropOp(instr, opnd->AsPropertySymOpnd());
+        }
+        else if (instr->m_opcode == Js::OpCode::StElemI_A ||
+                 instr->m_opcode == Js::OpCode::StElemI_A_Strict ||
+                 instr->m_opcode == Js::OpCode::InitComputedProperty)
+        {
+            this->KillObjectHeaderInlinedTypeSyms(this->currentBlock, false);
         }
 
         if (opnd->IsIndirOpnd() && !this->IsLoopPrePass())
@@ -3171,7 +3063,7 @@ GlobOpt::SetLoopFieldInitialValue(Loop *loop, IR::Instr *instr, PropertySym *pro
     Value *landingPadObjPtrVal, *currentObjPtrVal;
     landingPadObjPtrVal = loop->landingPad->globOptData.FindValue(objectSym);
     currentObjPtrVal = CurrentBlockData()->FindValue(objectSym);
-
+    
     auto CanSetInitialValue = [&]() -> bool {
         if (!currentObjPtrVal)
         {
@@ -3365,14 +3257,10 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
         }
         originalPropertySym = sym->AsPropertySym();
 
-        // Don't give a value to 'arguments' property sym to prevent field copy prop of 'arguments'
+        // Dont give a vale to 'arguments' property sym to prevent field copy prop of 'arguments'
         if (originalPropertySym->AsPropertySym()->m_propertyId == Js::PropertyIds::arguments &&
             originalPropertySym->AsPropertySym()->m_fieldKind == PropertyKindData)
         {
-            if (opnd->AsSymOpnd()->IsPropertySymOpnd())
-            {
-                this->FinishOptPropOp(instr, opnd->AsPropertySymOpnd());
-            }
             return nullptr;
         }
 
@@ -3380,7 +3268,7 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
         opnd->AsSymOpnd()->SetPropertyOwnerValueType(
             objectValue ? objectValue->GetValueInfo()->Type() : ValueType::Uninitialized);
 
-
+        
         sym = this->CopyPropPropertySymObj(opnd->AsSymOpnd(), instr);
 
         if (!DoFieldCopyProp())
@@ -3430,7 +3318,7 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
                 }
             }
         }
-        break;
+        break; 
     }
     case IR::OpndKindReg:
         // Clear the opnd's value type up-front, so that this code cannot accidentally use the value type set from a previous
@@ -3566,7 +3454,7 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
             if (profiledArrayType.IsLikelyObject())
             {
                 // Ideally we want to use the most specialized type seen by this path, but when that causes bailouts use the least specialized type instead.
-                if (useAggressiveSpecialization &&
+                if (useAggressiveSpecialization && 
                     profiledArrayType.GetObjectType() == valueType.GetObjectType() &&
                     !valueType.IsLikelyNativeIntArray() &&
                     (
@@ -3577,7 +3465,7 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
                     valueType = profiledArrayType.SetHasNoMissingValues(valueType.HasNoMissingValues());
                     ChangeValueType(this->currentBlock, CurrentBlockData()->FindValue(opnd->AsRegOpnd()->m_sym), valueType, false);
                 }
-                else if (!useAggressiveSpecialization &&
+                else if (!useAggressiveSpecialization && 
                     (profiledArrayType.GetObjectType() != valueType.GetObjectType() ||
                         (
                             valueType.IsLikelyNativeArray() &&
@@ -3603,7 +3491,7 @@ GlobOpt::OptSrc(IR::Opnd *opnd, IR::Instr * *pInstr, Value **indirIndexValRef, I
 
         opnd->SetValueType(valueType);
 
-        if(!IsLoopPrePass() && opnd->IsSymOpnd() && (valueType.IsDefinite() || valueType.IsNotTaggedValue()))
+        if(!IsLoopPrePass() && opnd->IsSymOpnd() && valueType.IsDefinite())
         {
             if (opnd->AsSymOpnd()->m_sym->IsPropertySym())
             {
@@ -4924,7 +4812,7 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
         }
         else
         {
-            return NewGenericValue(src1ValueInfo->Type().ToDefiniteAnyNumber().SetCanBeTaggedValue(true), dst);
+            return NewGenericValue(src1ValueInfo->Type().ToDefiniteAnyNumber(), dst);
         }
         break;
 
@@ -4985,7 +4873,7 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
         {
             valueType = ValueType::Number;
         }
-        return CreateDstUntransferredValue(valueType.SetCanBeTaggedValue(true), instr, src1Val, src2Val);
+        return CreateDstUntransferredValue(valueType, instr, src1Val, src2Val);
     }
 
     case Js::OpCode::Add_A:
@@ -5019,12 +4907,12 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
                     {
                         // If one of them is a float, the result probably is a float instead of just int
                         // but should always be a number.
-                        valueType = ValueType::Float.SetCanBeTaggedValue(true);
+                        valueType = ValueType::Float;
                     }
                     else
                     {
                         // Could be int, could be number
-                        valueType = ValueType::Number.SetCanBeTaggedValue(true);
+                        valueType = ValueType::Number;
                     }
                 }
                 else if (src1ValueInfo->IsLikelyFloat() || src2ValueInfo->IsLikelyFloat())
@@ -5048,7 +4936,7 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
             && (src2Val && src2ValueInfo->IsNotString() && src2ValueInfo->IsPrimitive()))
         {
             // If src1 and src2 are not strings and primitive, add should yield a number.
-            valueType = ValueType::Number.SetCanBeTaggedValue(true);
+            valueType = ValueType::Number;
         }
         else if((src1Val && src1ValueInfo->IsLikelyString()) || (src2Val && src2ValueInfo->IsLikelyString()))
         {
@@ -5069,7 +4957,7 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
             ValueType divValueType = GetDivValueType(instr, src1Val, src2Val, false);
             if (divValueType.IsLikelyInt() || divValueType.IsFloat())
             {
-                return CreateDstUntransferredValue(divValueType.SetCanBeTaggedValue(true), instr, src1Val, src2Val);
+                return CreateDstUntransferredValue(divValueType, instr, src1Val, src2Val);
             }
         }
         // fall-through
@@ -5101,11 +4989,11 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
             // This should ideally be NewNumberAndLikelyFloatValue since we know the result is a number but not sure if it will
             // be a float value. However, that Number/LikelyFloat value type doesn't exist currently and all the necessary
             // checks are done for float values (tagged int checks, etc.) so it's sufficient to just create a float value here.
-            valueType = ValueType::Float.SetCanBeTaggedValue(true);
+            valueType = ValueType::Float;
         }
         else
         {
-            valueType = ValueType::Number.SetCanBeTaggedValue(true);
+            valueType = ValueType::Number;
         }
 
         return CreateDstUntransferredValue(valueType, instr, src1Val, src2Val);
@@ -5213,6 +5101,18 @@ GlobOpt::ValueNumberDst(IR::Instr **pInstr, Value *src1Val, Value *src2Val)
     case Js::OpCode::IsInst:
     case Js::OpCode::LdTrue:
     case Js::OpCode::LdFalse:
+    case Js::OpCode::CmEq_A:
+    case Js::OpCode::CmSrEq_A:
+    case Js::OpCode::CmNeq_A:
+    case Js::OpCode::CmSrNeq_A:
+    case Js::OpCode::CmLe_A:
+    case Js::OpCode::CmUnLe_A:
+    case Js::OpCode::CmLt_A:
+    case Js::OpCode::CmUnLt_A:
+    case Js::OpCode::CmGe_A:
+    case Js::OpCode::CmUnGe_A:
+    case Js::OpCode::CmGt_A:
+    case Js::OpCode::CmUnGt_A:
         return this->NewGenericValue(ValueType::Boolean, dst);
 
     case Js::OpCode::LdUndef:
@@ -5285,10 +5185,10 @@ GlobOpt::ValueNumberLdElemDst(IR::Instr **pInstr, Value *srcVal)
             }
         }
     }
-    
+
     IR::IndirOpnd *src = instr->GetSrc1()->AsIndirOpnd();
     const ValueType baseValueType(src->GetBaseOpnd()->GetValueType());
-    if (instr->DoStackArgsOpt(this->func) ||
+    if (instr->DoStackArgsOpt() ||
         !(
             baseValueType.IsLikelyOptimizedTypedArray() ||
             (baseValueType.IsLikelyNativeArray() && instr->IsProfiledInstr()) // Specialized native array lowering for LdElem requires that it is profiled.
@@ -5312,7 +5212,7 @@ GlobOpt::ValueNumberLdElemDst(IR::Instr **pInstr, Value *srcVal)
                     this->func->GetDebugNumberSet(debugStringBuffer),
                     Js::OpCodeUtil::GetOpCodeName(instr->m_opcode),
                     baseValueTypeStr,
-                    instr->DoStackArgsOpt(this->func) ? _u("instruction uses the arguments object") :
+                    instr->DoStackArgsOpt() ? _u("instruction uses the arguments object") :
                     baseValueType.IsLikelyOptimizedTypedArray() ? _u("index is negative or likely not int") : _u("of array type"));
                 Output::Flush();
             }
@@ -5552,8 +5452,7 @@ GlobOpt::GetPrepassValueTypeForDst(
     IR::Instr *const instr,
     Value *const src1Value,
     Value *const src2Value,
-    bool const isValueInfoPrecise,
-    bool const isSafeToTransferInPrepass) const
+    bool const isValueInfoPrecise) const
 {
     // Values with definite types can be created in the loop prepass only when it is guaranteed that the value type will be the
     // same on any iteration of the loop. The heuristics currently used are:
@@ -5570,13 +5469,13 @@ GlobOpt::GetPrepassValueTypeForDst(
     Assert(IsLoopPrePass());
     Assert(instr);
 
+    if(!desiredValueType.IsDefinite())
+    {
+        return desiredValueType;
+    }
+
     if(!isValueInfoPrecise)
     {
-        if(!desiredValueType.IsDefinite())
-        {
-            return isSafeToTransferInPrepass ? desiredValueType : desiredValueType.SetCanBeTaggedValue(true);
-        }
-
         // If the desired value type is not precise, the value type of the destination is derived from the value types of the
         // sources. Since the value type of a source sym is not definite, the destination value type also cannot be definite.
         if(desiredValueType.IsInt() && OpCodeAttr::IsInt32(instr->m_opcode))
@@ -5589,7 +5488,6 @@ GlobOpt::GetPrepassValueTypeForDst(
             // The op always produces a number, but not always an int
             return desiredValueType.ToDefiniteAnyNumber();
         }
-        // Note: ToLikely() also sets CanBeTaggedValue
         return desiredValueType.ToLikely();
     }
 
@@ -5667,7 +5565,7 @@ GlobOpt::SafeToCopyPropInPrepass(StackSym * const originalSym, StackSym * const 
     Assert(this->currentBlock->globOptData.GetCopyPropSym(originalSym, value) == copySym);
 
     // In the following example, to copy-prop s2 into s1, it is not enough to check if s1 and s2 are safe to transfer.
-    // In fact, both s1 and s2 are safe to transfer, but it is not legal to copy prop s2 into s1.
+    // In fact, both s1 and s2 are safe to transfer, but it is not legal to copy prop s2 into s1. 
     //
     // s1 = s2
     // $Loop:
@@ -5678,7 +5576,7 @@ GlobOpt::SafeToCopyPropInPrepass(StackSym * const originalSym, StackSym * const 
     // In general, requirements for copy-propping in prepass are more restricted than those for transferring values.
     // For copy prop in prepass, if the original sym is live on back-edge, then the copy-prop sym should not be written to
     // in the loop (or its parents)
-
+    
     ValueInfo* const valueInfo = value->GetValueInfo();
     return IsSafeToTransferInPrepass(originalSym, valueInfo) &&
         IsSafeToTransferInPrepass(copySym, valueInfo) &&
@@ -5865,8 +5763,8 @@ GlobOpt::ValueNumberTransferDstInPrepass(IR::Instr *const instr, Value *const sr
     // for aggressive int type spec.
     bool isSafeToTransferInPrepass = false;
     isValueInfoPrecise = IsPrepassSrcValueInfoPrecise(instr, src1Val, nullptr, &isSafeToTransferInPrepass);
-
-    const ValueType valueType(GetPrepassValueTypeForDst(src1ValueInfo->Type(), instr, src1Val, nullptr, isValueInfoPrecise, isSafeToTransferInPrepass));
+    
+    const ValueType valueType(GetPrepassValueTypeForDst(src1ValueInfo->Type(), instr, src1Val, nullptr, isValueInfoPrecise));
     if(isValueInfoPrecise || isSafeToTransferInPrepass)
     {
         Assert(valueType == src1ValueInfo->Type());
@@ -6583,6 +6481,12 @@ GlobOpt::GetConstantVar(IR::Opnd *opnd, Value *val)
             return Js::TaggedInt::ToVarUnchecked(opnd->AsIntConstOpnd()->AsInt32());
         }
     }
+#if FLOATVAR
+    else if (opnd->IsFloatConstOpnd())
+    {
+        return Js::JavascriptNumber::ToVar(opnd->AsFloatConstOpnd()->m_value);
+    }
+#endif
     else if (opnd->IsRegOpnd() && opnd->AsRegOpnd()->m_sym->IsSingleDef())
     {
         if (valueInfo->IsBoolean())
@@ -6604,19 +6508,110 @@ GlobOpt::GetConstantVar(IR::Opnd *opnd, Value *val)
         {
             return (Js::Var)this->func->GetScriptContextInfo()->GetNullAddr();
         }
+#if FLOATVAR
+        else if (valueInfo->IsFloat())
+        {
+            IR::Instr * defInstr = opnd->AsRegOpnd()->m_sym->GetInstrDef();
+            if (defInstr->m_opcode == Js::OpCode::LdC_F8_R8 && defInstr->GetSrc1()->IsFloatConstOpnd())
+            {
+                return Js::JavascriptNumber::ToVar(defInstr->GetSrc1()->AsFloatConstOpnd()->m_value);
+            }
+        }
+#endif
     }
 
     return nullptr;
 }
 
-bool BoolAndIntStaticAndTypeMismatch(Value* src1Val, Value* src2Val, Js::Var src1Var, Js::Var src2Var)
+namespace
 {
-    ValueInfo *src1ValInfo = src1Val->GetValueInfo();
-    ValueInfo *src2ValInfo = src2Val->GetValueInfo();
-    return (src1ValInfo->IsNumber() && src1Var && src2ValInfo->IsBoolean() && src1Var != Js::TaggedInt::ToVarUnchecked(0) && src1Var != Js::TaggedInt::ToVarUnchecked(1)) ||
-        (src2ValInfo->IsNumber() && src2Var && src1ValInfo->IsBoolean() && src2Var != Js::TaggedInt::ToVarUnchecked(0) && src2Var != Js::TaggedInt::ToVarUnchecked(1));
-}
+    bool TryCompIntAndFloat(bool * result, Js::Var left, Js::Var right)
+    {
+        if (Js::TaggedInt::Is(left))
+        {
+            // If both are tagged ints we should not get here.
+            Assert(!Js::TaggedInt::Is(right));
+            if (Js::JavascriptNumber::Is_NoTaggedIntCheck(right))
+            {
+                double value = Js::JavascriptNumber::GetValue(right);
+                *result = (Js::TaggedInt::ToInt32(left) == value);
+                return true;
+            }
+        }
+        return false;
+    }
 
+    bool Op_JitEq(bool * result, Value * src1Val, Value * src2Val, Js::Var src1Var, Js::Var src2Var, Func * func, bool isStrict)
+    {
+        Assert(src1Val != nullptr && src2Val != nullptr);
+        Assert(src1Var != nullptr && src2Var != nullptr);
+
+        if (src1Var == src2Var)
+        {
+            if (Js::TaggedInt::Is(src1Var))
+            {
+                *result = true;
+                return true;
+            }
+
+            if (!isStrict && src1Val->GetValueInfo()->IsNotFloat())
+            {
+                // If the vars are equal and they are not NaN, non-strict equal returns true. Not float guarantees not NaN.
+                *result = true;
+                return true;
+            }
+
+#if FLOATVAR
+            if (Js::JavascriptNumber::Is_NoTaggedIntCheck(src1Var))
+            {
+                *result = !Js::JavascriptNumber::IsNan(Js::JavascriptNumber::GetValue(src1Var));
+                return true;
+            }
+#endif
+
+            if (src1Var == reinterpret_cast<Js::Var>(func->GetScriptContextInfo()->GetTrueAddr()) ||
+                src1Var == reinterpret_cast<Js::Var>(func->GetScriptContextInfo()->GetFalseAddr()) ||
+                src1Var == reinterpret_cast<Js::Var>(func->GetScriptContextInfo()->GetNullAddr()) ||
+                src1Var == reinterpret_cast<Js::Var>(func->GetScriptContextInfo()->GetUndefinedAddr()))
+            {
+                *result = true;
+                return true;
+            }
+
+            // Other var comparisons require the runtime to prove.
+            return false;
+        }
+
+#if FLOATVAR
+        if (TryCompIntAndFloat(result, src1Var, src2Var) || TryCompIntAndFloat(result, src2Var, src1Var))
+        {
+            return true;
+        }
+
+#endif
+
+        return false;
+    }
+
+    bool Op_JitNeq(bool * result, Value * src1Val, Value * src2Val, Js::Var src1Var, Js::Var src2Var, Func * func, bool isStrict)
+    {
+        if (Op_JitEq(result, src1Val, src2Val, src1Var, src2Var, func, isStrict))
+        {
+            *result = !*result;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool BoolAndIntStaticAndTypeMismatch(Value* src1Val, Value* src2Val, Js::Var src1Var, Js::Var src2Var)
+    {
+        ValueInfo *src1ValInfo = src1Val->GetValueInfo();
+        ValueInfo *src2ValInfo = src2Val->GetValueInfo();
+        return (src1ValInfo->IsNumber() && src1Var && src2ValInfo->IsBoolean() && src1Var != Js::TaggedInt::ToVarUnchecked(0) && src1Var != Js::TaggedInt::ToVarUnchecked(1)) ||
+            (src2ValInfo->IsNumber() && src2Var && src1ValInfo->IsBoolean() && src2Var != Js::TaggedInt::ToVarUnchecked(0) && src2Var != Js::TaggedInt::ToVarUnchecked(1));
+    }
+}
 
 bool
 GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2Val, Js::Var src1Var, Js::Var src2Var, bool *result)
@@ -6744,12 +6739,10 @@ GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2
         }
         else
         {
-            if (func->IsOOPJIT() || !CONFIG_FLAG(OOPJITMissingOpts))
+            if (!Op_JitEq(result, src1Val, src2Val, src1Var, src2Var, this->func, false /* isStrict */))
             {
-                // TODO: OOP JIT, const folding
                 return false;
             }
-            *result = Js::JavascriptOperators::Equal(src1Var, src2Var, this->func->GetScriptContext());
         }
         break;
     case Js::OpCode::BrNeq_A:
@@ -6776,12 +6769,10 @@ GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2
         }
         else
         {
-            if (func->IsOOPJIT() || !CONFIG_FLAG(OOPJITMissingOpts))
+            if (!Op_JitNeq(result, src1Val, src2Val, src1Var, src2Var, this->func, false /* isStrict */))
             {
-                // TODO: OOP JIT, const folding
                 return false;
             }
-            *result = Js::JavascriptOperators::NotEqual(src1Var, src2Var, this->func->GetScriptContext());
         }
         break;
     case Js::OpCode::BrSrEq_A:
@@ -6817,12 +6808,10 @@ GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2
         }
         else
         {
-            if (func->IsOOPJIT() || !CONFIG_FLAG(OOPJITMissingOpts))
+            if (!Op_JitEq(result, src1Val, src2Val, src1Var, src2Var, this->func, true /* isStrict */))
             {
-                // TODO: OOP JIT, const folding
                 return false;
             }
-            *result = Js::JavascriptOperators::StrictEqual(src1Var, src2Var, this->func->GetScriptContext());
         }
         break;
 
@@ -6859,12 +6848,10 @@ GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2
         }
         else
         {
-            if (func->IsOOPJIT() || !CONFIG_FLAG(OOPJITMissingOpts))
+            if (!Op_JitNeq(result, src1Val, src2Val, src1Var, src2Var, this->func, true /* isStrict */))
             {
-                // TODO: OOP JIT, const folding
                 return false;
             }
-            *result = Js::JavascriptOperators::NotStrictEqual(src1Var, src2Var, this->func->GetScriptContext());
         }
         break;
 
@@ -6884,16 +6871,36 @@ GlobOpt::CanProveConditionalBranch(IR::Instr *instr, Value *src1Val, Value *src2
             break;
         }
 
-        if (func->IsOOPJIT() || !CONFIG_FLAG(OOPJITMissingOpts))
-        {
-            // TODO: OOP JIT, const folding
-            return false;
-        }
         if (!src1Var)
         {
             return false;
         }
-        *result = Js::JavascriptConversion::ToBoolean(src1Var, this->func->GetScriptContext());
+
+        // Set *result = (evaluates true) and negate it later for BrFalse
+        if (src1Var == reinterpret_cast<Js::Var>(this->func->GetScriptContextInfo()->GetTrueAddr()))
+        {
+            *result = true;
+        }
+        else if (src1Var == reinterpret_cast<Js::Var>(this->func->GetScriptContextInfo()->GetFalseAddr()))
+        {
+            *result = false;
+        }
+        else if (Js::TaggedInt::Is(src1Var))
+        {
+            *result = (src1Var != reinterpret_cast<Js::Var>(Js::AtomTag_IntPtr));
+        }
+#if FLOATVAR
+        else if (Js::JavascriptNumber::Is_NoTaggedIntCheck(src1Var))
+        {
+            double value = Js::JavascriptNumber::GetValue(src1Var);
+            *result = (!Js::JavascriptNumber::IsNan(value)) && (!Js::JavascriptNumber::IsZero(value));
+        }
+#endif
+        else
+        {
+            return false;
+        }
+
         if (instr->m_opcode == Js::OpCode::BrFalse_A)
         {
             *result = !(*result);
@@ -9342,7 +9349,7 @@ GlobOpt::TypeSpecializeBinary(IR::Instr **pInstr, Value **pSrc1Val, Value **pSrc
                 bool isConservativeMulInt = !DoAggressiveMulIntTypeSpec() || !DoAggressiveIntTypeSpec();
 
                 // Be conservative about predicting Mul overflow in prepass.
-                // Operands that are live on back edge may be denied lossless-conversion to int32 and
+                // Operands that are live on back edge may be denied lossless-conversion to int32 and 
                 // trigger rejit with AggressiveIntTypeSpec off.
                 // Besides multiplying a variable in a loop can overflow in just a few iterations even in simple cases like v *= 2
                 // So, make sure we definitely know the source max/min values, otherwise assume the full range.
@@ -10578,6 +10585,7 @@ GlobOpt::TypeSpecializeFloatBinary(IR::Instr *instr, Value *src1Val, Value *src2
     bool skipSrc1 = false;
     bool skipSrc2 = false;
     bool skipDst = false;
+    bool convertDstToBool = false;
 
     if (!this->DoFloatTypeSpec())
     {
@@ -10649,6 +10657,36 @@ GlobOpt::TypeSpecializeFloatBinary(IR::Instr *instr, Value *src1Val, Value *src2
             skipDst = true;
             break;
 
+        case Js::OpCode::CmEq_A:
+        case Js::OpCode::CmSrEq_A:
+        case Js::OpCode::CmNeq_A:
+        case Js::OpCode::CmSrNeq_A:
+        {
+            if (src1Val->GetValueInfo()->IsNotNumber() || src2Val->GetValueInfo()->IsNotNumber())
+            {
+                return false;
+            }
+
+            allowUndefinedOrNullSrc1 = false;
+            allowUndefinedOrNullSrc2 = false;
+            convertDstToBool = true;
+            break;
+        }
+
+        case Js::OpCode::CmLe_A:
+        case Js::OpCode::CmLt_A:
+        case Js::OpCode::CmGe_A:
+        case Js::OpCode::CmGt_A:
+        {
+            if (src1Val->GetValueInfo()->IsNotNumber() || src2Val->GetValueInfo()->IsNotNumber())
+            {
+                return false;
+            }
+
+            convertDstToBool = true;
+            break;
+        }
+        
         default:
             return false;
         }
@@ -10694,13 +10732,19 @@ GlobOpt::TypeSpecializeFloatBinary(IR::Instr *instr, Value *src1Val, Value *src2
     if (!skipDst)
     {
         dst = instr->GetDst();
-
         if (dst)
         {
-            *pDstVal = CreateDstUntransferredValue(ValueType::Float, instr, src1Val, src2Val);
-
-            AssertMsg(dst->IsRegOpnd(), "What else?");
-            this->ToFloat64Dst(instr, dst->AsRegOpnd(), this->currentBlock);
+            if (convertDstToBool)
+            {
+                *pDstVal = CreateDstUntransferredValue(ValueType::Boolean, instr, src1Val, src2Val);
+                ToVarRegOpnd(dst->AsRegOpnd(), currentBlock);
+            }
+            else
+            {
+                *pDstVal = CreateDstUntransferredValue(ValueType::Float, instr, src1Val, src2Val);
+                AssertMsg(dst->IsRegOpnd(), "What else?");
+                this->ToFloat64Dst(instr, dst->AsRegOpnd(), this->currentBlock);
+            }
         }
     }
 
@@ -10724,7 +10768,7 @@ GlobOpt::TypeSpecializeStElem(IR::Instr ** pInstr, Value *src1Val, Value **pDstV
 
     IR::RegOpnd *baseOpnd = instr->GetDst()->AsIndirOpnd()->GetBaseOpnd();
     ValueType baseValueType(baseOpnd->GetValueType());
-    if (instr->DoStackArgsOpt(this->func) ||
+    if (instr->DoStackArgsOpt() ||
         (!this->DoTypedArrayTypeSpec() && baseValueType.IsLikelyOptimizedTypedArray()) ||
         (!this->DoNativeArrayTypeSpec() && baseValueType.IsLikelyNativeArray()) ||
         !(baseValueType.IsLikelyOptimizedTypedArray() || baseValueType.IsLikelyNativeArray()))
@@ -10740,7 +10784,7 @@ GlobOpt::TypeSpecializeStElem(IR::Instr ** pInstr, Value *src1Val, Value **pDstV
                 this->func->GetDebugNumberSet(debugStringBuffer),
                 Js::OpCodeUtil::GetOpCodeName(instr->m_opcode),
                 baseValueTypeStr,
-                instr->DoStackArgsOpt(this->func) ?
+                instr->DoStackArgsOpt() ?
                     _u("instruction uses the arguments object") :
                     _u("typed array type specialization is disabled, or base is not an optimized typed array"));
             Output::Flush();
@@ -11065,7 +11109,7 @@ GlobOpt::ToVarUses(IR::Instr *instr, IR::Opnd *opnd, bool isDst, Value *val)
     return instr;
 }
 
-IR::Instr *
+IR::Instr * 
 GlobOpt::ToTypeSpecIndex(IR::Instr * instr, IR::RegOpnd * indexOpnd, IR::IndirOpnd * indirOpnd)
 {
     Assert(indirOpnd != nullptr || indexOpnd == instr->GetSrc1());
@@ -12934,26 +12978,6 @@ GlobOpt::ProcessValueKills(IR::Instr *const instr)
             it.RemoveCurrent();
         }
     }
-    else if(kills.KillsObjectArraysWithNoMissingValues())
-    {
-        // Some operations may kill objects with arrays-with-no-missing-values in unlikely circumstances. Convert their value types to likely
-        // versions so that the checks have to be redone.
-        for(auto it = valuesToKillOnCalls->GetIteratorWithRemovalSupport(); it.IsValid(); it.MoveNext())
-        {
-            Value *const value = it.CurrentValue();
-            ValueInfo *const valueInfo = value->GetValueInfo();
-            Assert(
-                valueInfo->IsArrayOrObjectWithArray() ||
-                valueInfo->IsOptimizedVirtualTypedArray() ||
-                valueInfo->IsOptimizedTypedArray() && valueInfo->AsArrayValueInfo()->HeadSegmentLengthSym());
-            if(!valueInfo->IsArrayOrObjectWithArray() || valueInfo->IsArray() || !valueInfo->HasNoMissingValues())
-            {
-                continue;
-            }
-            ChangeValueType(nullptr, value, valueInfo->Type().ToLikely(), false);
-            it.RemoveCurrent();
-        }
-    }
 
     if(kills.KillsNativeArrays())
     {
@@ -13209,33 +13233,86 @@ GlobOpt::OptArraySrc(IR::Instr ** const instrRef, Value ** src1Val, Value ** src
 }
 
 void
-GlobOpt::ProcessNoImplicitCallArrayUses(IR::RegOpnd * baseOpnd, IR::ArrayRegOpnd * baseArrayOpnd, IR::Instr * instr, bool isLikelyJsArray, bool useNoMissingValues)
+GlobOpt::OptStackArgLenAndConst(IR::Instr* instr, Value** src1Val)
 {
-    if (isLikelyJsArray)
+    if (!PHASE_OFF(Js::StackArgLenConstOptPhase, instr->m_func) && instr->m_func->IsStackArgsEnabled() && instr->usesStackArgumentsObject && instr->IsInlined())
     {
-        // Insert an instruction to indicate to the dead-store pass that implicit calls need to be kept disabled until this
-        // instruction. Operations other than LdElem, StElem and IsIn don't benefit much from arrays having no missing values,
-        // so no need to ensure that the array still has no missing values. For a particular array, if none of the accesses
-        // benefit much from the no-missing-values information, it may be beneficial to avoid checking for no missing
-        // values, especially in the case for a single array access, where the cost of the check could be relatively
-        // significant. An StElem has to do additional checks in the common path if the array may have missing values, and
-        // a StElem that operates on an array that has no missing values is more likely to keep the no-missing-values info
-        // on the array more precise, so it still benefits a little from the no-missing-values info.
-        this->CaptureNoImplicitCallUses(baseOpnd, isLikelyJsArray);
-    }
-    else if (baseArrayOpnd && baseArrayOpnd->HeadSegmentLengthSym())
-    {
-        // A typed array's array buffer may be transferred to a web worker as part of an implicit call, in which case the typed
-        // array's length is set to zero. Insert an instruction to indicate to the dead-store pass that implicit calls need to
-        // be disabled until this instruction.
-        IR::RegOpnd *const headSegmentLengthOpnd =
-            IR::RegOpnd::New(
-                baseArrayOpnd->HeadSegmentLengthSym(),
-                baseArrayOpnd->HeadSegmentLengthSym()->GetType(),
-                instr->m_func);
+        IR::Opnd* src1 = instr->GetSrc1();
+        auto replaceInstr = [&](IR::Opnd* newopnd, Js::OpCode opcode)
+        {
+            if (PHASE_TESTTRACE(Js::StackArgLenConstOptPhase, instr->m_func))
+            {
+                Output::Print(_u("Inlined function %s have replaced opcode %s with opcode %s for stack arg optimization. \n"), instr->m_func->GetJITFunctionBody()->GetDisplayName(),
+                            Js::OpCodeUtil::GetOpCodeName(instr->m_opcode), Js::OpCodeUtil::GetOpCodeName(opcode));
+                Output::Flush();
+            }
+            this->CaptureByteCodeSymUses(instr);
+            instr->m_opcode = opcode;
+            instr->ReplaceSrc1(newopnd);
+            if (instr->HasBailOutInfo())
+            {
+                instr->ClearBailOutInfo();
+            }
+            *src1Val = this->OptSrc(instr->GetSrc1(), &instr);
+            instr->m_func->hasArgLenAndConstOpt = true;
+        };
+        Assert(CurrentBlockData()->IsArgumentsOpnd(src1));
+        switch(instr->m_opcode)
+        {
+            case Js::OpCode::LdLen_A:
+            {
+                IR::AddrOpnd* newopnd = IR::AddrOpnd::New(Js::TaggedInt::ToVarUnchecked(instr->m_func->actualCount - 1), IR::AddrOpndKindConstantVar, instr->m_func);
+                replaceInstr(newopnd, Js::OpCode::Ld_A);
+                break;
+            }
+            case Js::OpCode::LdElemI_A:
+            case Js::OpCode::TypeofElem:
+            {
+                IR::IndirOpnd* indirOpndSrc1 = src1->AsIndirOpnd();
+                if (!indirOpndSrc1->GetIndexOpnd())
+                {
+                    int argIndex = indirOpndSrc1->GetOffset() + 1;
+                    IR::Instr* defInstr = nullptr;
+                    IR::Instr* inlineeStart = instr->m_func->GetInlineeStart();
+                    inlineeStart->IterateArgInstrs([&](IR::Instr* argInstr) {
+                        StackSym *argSym = argInstr->GetDst()->AsSymOpnd()->m_sym->AsStackSym();
+                        if (argSym->GetArgSlotNum() - 1 == argIndex)
+                        {
+                            defInstr = argInstr;
+                            return true;
+                        }
+                        return false;
+                    });
 
-        const IR::AutoReuseOpnd autoReuseHeadSegmentLengthOpnd(headSegmentLengthOpnd, instr->m_func);
-        this->CaptureNoImplicitCallUses(headSegmentLengthOpnd, false);
+                    Js::OpCode replacementOpcode;
+                    if (instr->m_opcode == Js::OpCode::TypeofElem)
+                    {
+                        replacementOpcode = Js::OpCode::Typeof;
+                    }
+                    else
+                    {
+                        replacementOpcode = Js::OpCode::Ld_A;
+                    }
+
+                    // If we cannot find the right instruction. I.E. When calling arguments[2] and no arguments were passed to the func
+                    if (defInstr == nullptr) 
+                    {
+                        IR::Opnd * undefined = IR::AddrOpnd::New(instr->m_func->GetScriptContextInfo()->GetUndefinedAddr(), IR::AddrOpndKindDynamicVar, instr->m_func, true);
+                        undefined->SetValueType(ValueType::Undefined);
+                        replaceInstr(undefined, replacementOpcode);
+                    }
+                    else
+                    {
+                        replaceInstr(defInstr->GetSrc1(), replacementOpcode);
+                    }   
+                }
+                else
+                {
+                    instr->m_func->unoptimizableArgumentsObjReference++;
+                }
+                break;
+            }
+        }
     }
 }
 
@@ -13357,7 +13434,6 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
     const bool useValueTypes = !IsLoopPrePass(); // Source value types are not guaranteed to be correct in a loop prepass
     switch(instr->m_opcode)
     {
-        case Js::OpCode::StElemC:
         case Js::OpCode::StElemI_A:
         case Js::OpCode::StElemI_A_Strict:
         {
@@ -13408,13 +13484,8 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
             }
             break;
 
-        case Js::OpCode::ConsoleScopedStFld:
-        case Js::OpCode::ConsoleScopedStFldStrict:
-        case Js::OpCode::ScopedStFld:
-        case Js::OpCode::ScopedStFldStrict:
         case Js::OpCode::StFld:
         case Js::OpCode::StFldStrict:
-        case Js::OpCode::StSuperFld:
         {
             Assert(instr->GetDst());
 
@@ -13516,11 +13587,6 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
             {
                 kills.SetKillsArrayLengths();
             }
-
-            if(doArrayMissingValueCheckHoist && !(useValueTypes && arrayValueType.IsArray()))
-            {
-                kills.SetKillsObjectArraysWithNoMissingValues();
-            }
             break;
         }
 
@@ -13559,8 +13625,6 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
                     case IR::HelperArray_Shift:
                     case IR::HelperArray_Splice:
                     case IR::HelperArray_Unshift:
-                    case IR::HelperArray_Concat:
-                    case IR::HelperArray_Slice:
                         kills.SetKillsArrayHeadSegments();
                         kills.SetKillsArrayHeadSegmentLengths();
                         break;
@@ -13590,7 +13654,6 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
                     //case IR::HelperArray_Sort:
                     case IR::HelperArray_Splice:
                     case IR::HelperArray_Unshift:
-                    case IR::HelperArray_Concat:
                         kills.SetKillsNativeArrays();
                         break;
                 }
@@ -13614,7 +13677,7 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
                 kills.SetKillsNativeArrays();
             }
             break;
-        }
+        }            
 
         case Js::OpCode::InitClass:
             Assert(instr->GetSrc1());
@@ -13632,7 +13695,6 @@ GlobOpt::CheckJsArrayKills(IR::Instr *const instr)
             break;
 
         case Js::OpCode::NewScObjectNoCtor:
-        case Js::OpCode::NewScObjectNoCtorFull:
             if(doNativeArrayTypeSpec)
             {
                 // Class/object construction can make something a prototype
@@ -15585,7 +15647,7 @@ GlobOpt::DoArrayCheckHoist() const
 bool
 GlobOpt::DoArrayCheckHoist(const ValueType baseValueType, Loop* loop, IR::Instr const * const instr) const
 {
-    if(!DoArrayCheckHoist() || (instr && !IsLoopPrePass() && instr->DoStackArgsOpt(func)))
+    if(!DoArrayCheckHoist() || (instr && !IsLoopPrePass() && instr->DoStackArgsOpt()))
     {
         return false;
     }
@@ -15719,7 +15781,7 @@ GlobOpt::DoLdLenIntSpec(IR::Instr * const instr, const ValueType baseValueType)
     if(PHASE_OFF(Js::LdLenIntSpecPhase, func) ||
         IsTypeSpecPhaseOff(func) ||
         (func->HasProfileInfo() && func->GetReadOnlyProfileInfo()->IsLdLenIntSpecDisabled()) ||
-        (instr && !IsLoopPrePass() && instr->DoStackArgsOpt(func)))
+        (instr && !IsLoopPrePass() && instr->DoStackArgsOpt()))
     {
         return false;
     }
@@ -15787,7 +15849,7 @@ GlobOpt::TrackArgumentsObject()
 {
     if (PHASE_OFF(Js::StackArgOptPhase, this->func))
     {
-        this->CannotAllocateArgumentsObjectOnStack();
+        this->CannotAllocateArgumentsObjectOnStack(nullptr);
         return false;
     }
 
@@ -15795,8 +15857,15 @@ GlobOpt::TrackArgumentsObject()
 }
 
 void
-GlobOpt::CannotAllocateArgumentsObjectOnStack()
+GlobOpt::CannotAllocateArgumentsObjectOnStack(Func * curFunc)
 {
+    if (curFunc != nullptr && curFunc->hasArgLenAndConstOpt)
+    {
+        Assert(!curFunc->GetJITOutput()->GetOutputData()->disableStackArgOpt);
+        curFunc->GetJITOutput()->GetOutputData()->disableStackArgOpt = true;
+        throw Js::RejitException(RejitReason::DisableStackArgLenAndConstOpt);
+    }
+
     func->SetHasStackArgs(false);
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
@@ -16628,7 +16697,6 @@ GlobOpt::GenerateBailOutMarkTempObjectIfNeeded(IR::Instr * instr, IR::Opnd * opn
         if (instr->HasBailOutInfo())
         {
             instr->SetBailOutKind(instr->GetBailOutKind() | IR::BailOutMarkTempObject);
-            instr->GetBailOutInfo()->canDeadStore = false;
         }
         else
         {
@@ -16638,11 +16706,6 @@ GlobOpt::GenerateBailOutMarkTempObjectIfNeeded(IR::Instr * instr, IR::Opnd * opn
                 || (instr->m_opcode == Js::OpCode::FromVar && !opnd->GetValueType().IsPrimitive())
                 || propertySymOpnd == nullptr
                 || !propertySymOpnd->IsTypeCheckProtected())
-            {
-                this->GenerateBailAtOperation(&instr, IR::BailOutMarkTempObject);
-                instr->GetBailOutInfo()->canDeadStore = false;
-            }
-            else if (propertySymOpnd->MayHaveImplicitCall())
             {
                 this->GenerateBailAtOperation(&instr, IR::BailOutMarkTempObject);
             }
@@ -16736,7 +16799,6 @@ GlobOpt::GetOrGenerateLoopCountForMemOp(Loop *loop)
 IR::Opnd *
 GlobOpt::GenerateInductionVariableChangeForMemOp(Loop *loop, byte unroll, IR::Instr *insertBeforeInstr)
 {
-    AssertOrFailFast(unroll != Js::Constants::InvalidLoopUnrollFactor);
     LoopCount *loopCount = loop->loopCount;
     IR::Opnd *sizeOpnd = nullptr;
     Assert(loopCount);
@@ -16774,25 +16836,17 @@ GlobOpt::GenerateInductionVariableChangeForMemOp(Loop *loop, byte unroll, IR::In
 
             IR::Opnd *unrollOpnd = IR::IntConstOpnd::New(unroll, type, localFunc);
 
-            IR::Instr* inductionChangeMultiplier = IR::Instr::New(
-                Js::OpCode::Mul_I4, sizeOpnd, loopCountOpnd, unrollOpnd, localFunc);
-
-            InsertInstr(inductionChangeMultiplier);
-
-            inductionChangeMultiplier->ConvertToBailOutInstr(loop->bailOutInfo, IR::BailOutOnOverflow);
+            InsertInstr(IR::Instr::New(Js::OpCode::Mul_I4,
+                sizeOpnd,
+                loopCountOpnd,
+                unrollOpnd,
+                localFunc));
 
         }
     }
     else
     {
-        int32 loopCountMinusOnePlusOne;
-        int32 size;
-        if (Int32Math::Add(loopCount->LoopCountMinusOneConstantValue(), 1, &loopCountMinusOnePlusOne) ||
-            Int32Math::Mul(loopCountMinusOnePlusOne, unroll, &size))
-        {
-            throw Js::RejitException(RejitReason::MemOpDisabled);
-        }
-        Assert(size > 0);
+        uint size = (loopCount->LoopCountMinusOneConstantValue() + 1)  * unroll;
         sizeOpnd = IR::IntConstOpnd::New(size, IRType::TyUint32, localFunc);
     }
     loop->memOpInfo->inductionVariableOpndPerUnrollMap->Add(unroll, sizeOpnd);
@@ -17055,9 +17109,6 @@ GlobOpt::EmitMemop(Loop * loop, LoopCount *loopCount, const MemOpEmitData* emitD
     memopInstr->SetSrc2(sizeOpnd);
     insertBeforeInstr->InsertBefore(memopInstr);
 
-
-    loop->memOpInfo->instr = memopInstr;
-
 #if DBG_DUMP
     if (DO_MEMOP_TRACE())
     {
@@ -17130,28 +17181,11 @@ GlobOpt::EmitMemop(Loop * loop, LoopCount *loopCount, const MemOpEmitData* emitD
     }
 #endif
 
-    Assert(noImplicitCallUsesToInsert->Count() == 0);
-    bool isLikelyJsArray;
-    if (emitData->stElemInstr->GetDst()->IsIndirOpnd())
-    {
-        baseOpnd = emitData->stElemInstr->GetDst()->AsIndirOpnd()->GetBaseOpnd();
-        isLikelyJsArray = baseOpnd->GetValueType().IsLikelyArrayOrObjectWithArray();
-        ProcessNoImplicitCallArrayUses(baseOpnd, baseOpnd->IsArrayRegOpnd() ? baseOpnd->AsArrayRegOpnd() : nullptr, emitData->stElemInstr, isLikelyJsArray, true);
-    }
     RemoveMemOpSrcInstr(memopInstr, emitData->stElemInstr, emitData->block);
     if (!isMemset)
     {
-        IR::Instr* ldElemInstr = ((MemCopyEmitData*)emitData)->ldElemInstr;
-        if (ldElemInstr->GetSrc1()->IsIndirOpnd())
-        {
-            baseOpnd = ldElemInstr->GetSrc1()->AsIndirOpnd()->GetBaseOpnd();
-            isLikelyJsArray = baseOpnd->GetValueType().IsLikelyArrayOrObjectWithArray();
-            ProcessNoImplicitCallArrayUses(baseOpnd, baseOpnd->IsArrayRegOpnd() ? baseOpnd->AsArrayRegOpnd() : nullptr, ldElemInstr, isLikelyJsArray, true);
-        }
-        RemoveMemOpSrcInstr(memopInstr, ldElemInstr, emitData->block);
+        RemoveMemOpSrcInstr(memopInstr, ((MemCopyEmitData*)emitData)->ldElemInstr, emitData->block);
     }
-    InsertNoImplicitCallUses(memopInstr);
-    noImplicitCallUsesToInsert->Clear();    
 }
 
 bool
@@ -17437,7 +17471,7 @@ GlobOpt::PRE::InsertSymDefinitionInLandingPad(StackSym * sym, Loop * loop, Sym *
 
             BasicBlock* loopTail = loop->GetAnyTailBlock();
             Value * valueOnBackEdge = loopTail->globOptData.FindValue(propSym);
-
+            
             // If o.x is not invariant in the loop, we can't use the preloaded value of o.x.y in the landing pad
             Value * valueInLandingPad = loop->landingPad->globOptData.FindValue(propSym);
             if (valueOnBackEdge->GetValueNumber() != valueInLandingPad->GetValueNumber())
@@ -17460,7 +17494,7 @@ GlobOpt::PRE::InsertSymDefinitionInLandingPad(StackSym * sym, Loop * loop, Sym *
                 Assert(loop->landingPad->globOptData.IsLive(valueOnBackEdge->GetValueInfo()->GetSymStore()));
 
                 // Inserted T3 = o.x
-                // Now, we want to
+                // Now, we want to 
                 // 1. Insert T1 = o.x
                 // 2. Insert T4 = T1.y
                 // 3. Indentify T3 as the objptr copy prop sym for T1, and make T3.y live on the back-edges
@@ -17630,8 +17664,8 @@ void GlobOpt::PRE::RemoveOverlyOptimisticInitialValues(Loop * loop)
 {
     BasicBlock * landingPad = loop->landingPad;
 
-    // For a property sym whose obj ptr sym wasn't live in the landing pad, we can optmistically (if the obj ptr sym was
-    // single def) insert an initial value in the landing pad, with the hope that PRE could make the obj ptr sym live.
+    // For a property sym whose obj ptr sym wasn't live in the landing pad, we can optimistically (if the obj ptr sym was
+    // single def) insert an initial value in the landing pad, with the hope that PRE could make the obj ptr sym live. 
     // But, if PRE couldn't make the obj ptr sym live, we need to clear the value for the property sym from the landing pad
 
     for (auto it = loop->initialValueFieldMap.GetIteratorWithRemovalSupport(); it.IsValid(); it.MoveNext())

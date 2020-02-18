@@ -7,7 +7,6 @@
 #include "Memory/XDataAllocator.h"
 #if PDATA_ENABLED && defined(_WIN32)
 #include "Core/DelayLoadLibrary.h"
-#include "JITClient.h"
 #include <malloc.h>
 
 CriticalSection DelayDeletingFunctionTable::cs;
@@ -35,14 +34,14 @@ DelayDeletingFunctionTable::~DelayDeletingFunctionTable()
 }
 
 
-bool DelayDeletingFunctionTable::AddEntry(XDataAllocation* xdata)
+bool DelayDeletingFunctionTable::AddEntry(FunctionTableHandle ft)
 {
     if (Head)
     {
         FunctionTableNode* node = (FunctionTableNode*)_aligned_malloc(sizeof(FunctionTableNode), MEMORY_ALLOCATION_ALIGNMENT);
         if (node)
         {
-            node->xdata = xdata;
+            node->functionTable = ft;
             InterlockedPushEntrySList(Head, &(node->itemEntry));
             return true;
         }
@@ -62,7 +61,7 @@ void DelayDeletingFunctionTable::Clear()
         while (entry)
         {
             FunctionTableNode* list = (FunctionTableNode*)entry;
-            DeleteFunctionTable(list->xdata);
+            DeleteFunctionTable(list->functionTable);
             _aligned_free(entry);
             entry = InterlockedPopEntrySList(Head);
         }
@@ -74,16 +73,9 @@ bool DelayDeletingFunctionTable::IsEmpty()
     return QueryDepthSList(Head) == 0;
 }
 
-void DelayDeletingFunctionTable::DeleteFunctionTable(XDataAllocation* xdata)
+void DelayDeletingFunctionTable::DeleteFunctionTable(void* functionTable)
 {
-    NtdllLibrary::Instance->DeleteGrowableFunctionTable(xdata->functionTable);
-
-#if defined(_M_ARM)
-    if (JITManager::GetJITManager()->IsOOPJITEnabled())
-#endif
-    {
-        HeapDelete(xdata);
-    }
+    NtdllLibrary::Instance->DeleteGrowableFunctionTable(functionTable);
 }
 
 #endif

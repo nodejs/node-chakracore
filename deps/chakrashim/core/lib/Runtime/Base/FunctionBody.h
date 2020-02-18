@@ -222,7 +222,7 @@ namespace Js
     // main and JIT threads.
     class EntryPointInfo : public ProxyEntryPointInfo
     {
-
+        
     private:
         enum State : BYTE
         {
@@ -571,9 +571,9 @@ namespace Js
         void ResetOnLazyBailoutFailure();
         void OnNativeCodeInstallFailure();
         virtual void ResetOnNativeCodeInstallFailure() = 0;
-
-        void FreeJitTransferData();
-        bool ClearEquivalentTypeCaches();
+               
+        void FreeJitTransferData();        
+        bool ClearEquivalentTypeCaches();        
 
         virtual void Invalidate(bool prolongEntryPoint) { Assert(false); }
         InlineeFrameRecord* FindInlineeFrame(void* returnAddress);
@@ -637,7 +637,7 @@ namespace Js
         virtual void Expire() override;
         virtual void EnterExpirableCollectMode() override;
         virtual void ResetOnNativeCodeInstallFailure() override;
-        static const uint8 GetDecrCallCountPerBailout()
+        static uint8 GetDecrCallCountPerBailout()
         {
             return (uint8)CONFIG_FLAG(CallsToBailoutsRatioForRejit) + 1;
         }
@@ -675,7 +675,7 @@ namespace Js
 
 #if ENABLE_NATIVE_CODEGEN
         virtual void ResetOnNativeCodeInstallFailure() override;
-        static const uint8 GetDecrLoopCountPerBailout()
+        static uint8 GetDecrLoopCountPerBailout()
         {
             return (uint8)CONFIG_FLAG(LoopIterationsToBailoutsRatioForRejit) + 1;
         }
@@ -730,8 +730,8 @@ namespace Js
 #endif
         static const uint NoLoop = (uint)-1;
 
-        static const uint GetOffsetOfProfiledLoopCounter() { return offsetof(LoopHeader, profiledLoopCounter); }
-        static const uint GetOffsetOfInterpretCount() { return offsetof(LoopHeader, interpretCount); }
+        static uint GetOffsetOfProfiledLoopCounter() { return offsetof(LoopHeader, profiledLoopCounter); }
+        static uint GetOffsetOfInterpretCount() { return offsetof(LoopHeader, interpretCount); }
 
         bool Contains(Js::LoopHeader * loopHeader) const
         {
@@ -981,7 +981,7 @@ namespace Js
 
         virtual void Mark(Recycler *recycler) override { AssertMsg(false, "Mark called on object that isn't TrackableObject"); }
 
-        static const uint GetOffsetOfFunctionInfo() { return offsetof(FunctionProxy, functionInfo); }
+        static uint GetOffsetOfFunctionInfo() { return offsetof(FunctionProxy, functionInfo); }
         FunctionInfo * GetFunctionInfo() const
         {
             return this->functionInfo;
@@ -1625,6 +1625,7 @@ namespace Js
 
         uint LengthInBytes() const { return m_cbLength; }
         uint StartOffset() const;
+        uint PrintableStartOffset() const;
         ULONG GetLineNumber() const;
         ULONG GetColumnNumber() const;
         template <class T>
@@ -1636,6 +1637,7 @@ namespace Js
         ULONG GetRelativeColumnNumber() const { return m_columnNumber; }
         uint GetSourceIndex() const;
         LPCUTF8 GetSource(const  char16* reason = nullptr) const;
+        LPCUTF8 GetToStringSource(const  char16* reason = nullptr) const;
         charcount_t LengthInChars() const { return m_cchLength; }
         charcount_t StartInDocument() const;
         bool IsEval() const { return m_isEval; }
@@ -1794,19 +1796,20 @@ namespace Js
         // yet, leaving this here for now. We can look at optimizing the function info and function proxy structures some
         // more and also fix our thunks to handle 8 bit offsets
 
-        FieldWithBarrier(bool) m_utf8SourceHasBeenSet;          // start of UTF8-encoded source
-        FieldWithBarrier(uint) m_sourceIndex;             // index into the scriptContext's list of saved sources
-#if DYNAMIC_INTERPRETER_THUNK
-        FieldNoBarrier(void*) m_dynamicInterpreterThunk;  // Unique 'thunk' for every interpreted function - used for ETW symbol decoding.
-#endif
-        FieldWithBarrier(uint) m_cbStartOffset;         // pUtf8Source is this many bytes from the start of the scriptContext's source buffer.
-
-        // This is generally the same as m_cchStartOffset unless the buffer has a BOM
+        FieldWithBarrier(bool) m_utf8SourceHasBeenSet : 1;          // start of UTF8-encoded source
 
 #define DEFINE_PARSEABLE_FUNCTION_INFO_FIELDS 1
 #define DECLARE_TAG_FIELD(type, name, serializableType) Field(type) name
 #define CURRENT_ACCESS_MODIFIER protected:
 #include "SerializableFunctionFields.h"
+
+        FieldWithBarrier(uint) m_sourceIndex;             // index into the scriptContext's list of saved sources
+#if DYNAMIC_INTERPRETER_THUNK
+        FieldNoBarrier(void*) m_dynamicInterpreterThunk;  // Unique 'thunk' for every interpreted function - used for ETW symbol decoding.
+#endif
+        FieldWithBarrier(uint) m_cbStartOffset;         // pUtf8Source is this many bytes from the start of the scriptContext's source buffer.
+                                                        // This is generally the same as m_cchStartOffset unless the buffer has a BOM or other non-ascii characters
+        FieldWithBarrier(uint) m_cbStartPrintOffset;    // pUtf8Source is this many bytes from the start of the toString-relevant part of the scriptContext's source buffer.
 
         FieldWithBarrier(ULONG) m_lineNumber;
         FieldWithBarrier(ULONG) m_columnNumber;
@@ -2224,7 +2227,7 @@ namespace Js
 #if DYNAMIC_INTERPRETER_THUNK
         void GenerateDynamicInterpreterThunk();
 #endif
-
+      
         Js::JavascriptMethod GetEntryPoint(ProxyEntryPointInfo* entryPoint) const { return entryPoint->jsMethod; }
         void CaptureDynamicProfileState(FunctionEntryPointInfo* entryPointInfo);
 #if ENABLE_DEBUG_CONFIG_OPTIONS
@@ -2377,7 +2380,7 @@ namespace Js
         }
 #endif
 
-        const bool GetIsAsmJsFunction() const
+        bool GetIsAsmJsFunction() const
         {
             return m_isAsmJsFunction;
         }
@@ -2965,6 +2968,7 @@ namespace Js
         void RecordFalseObject(RegSlot location);
         void RecordIntConstant(RegSlot location, unsigned int val);
         void RecordStrConstant(RegSlot location, LPCOLESTR psz, uint32 cch, bool forcePropertyString);
+        void RecordBigIntConstant(RegSlot location, LPCOLESTR psz, uint32 cch, bool isNegative);
         void RecordFloatConstant(RegSlot location, double d);
         void RecordNullDisplayConstant(RegSlot location);
         void RecordStrictNullDisplayConstant(RegSlot location);

@@ -12,7 +12,6 @@ public:
 
     bool IsObjectHeaderInlinedTypeHandler() const;
     bool IsLocked() const;
-    bool IsPrototype() const;
 
     uint16 GetInlineSlotCapacity() const;
     uint16 GetOffsetOfInlineSlots() const;

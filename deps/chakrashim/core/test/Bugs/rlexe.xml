@@ -488,7 +488,7 @@
     <default>
       <files>bug17785360.js</files>
     </default>
-  </test> 
+  </test>
   <test>
     <default>
       <files>bug_OS17530048.js</files>
@@ -510,7 +510,7 @@
     <default>
       <files>OS_17745531.js</files>
     </default>
-  </test>   
+  </test>
   <test>
     <default>
       <files>SuperUndoDeferIssue.js</files>
@@ -525,6 +525,13 @@
   </test>
   <test>
     <default>
+      <files>deferredStubBugs.js</files>
+      <tags>exclude_jshost</tags>
+      <compile-flags>-force:deferparse -parserstatecache -useparserstatecache</compile-flags>
+    </default>
+  </test>
+  <test>
+    <default>
       <files>SuperAccessInGlobalLambda.js</files>
       <baseline>SuperAccessInGlobalLambda.baseline</baseline>
       <tags>exclude_jshost</tags>
@@ -532,8 +539,9 @@
   </test>
   <test>
     <default>
-      <files>bug_5585.js</files>
-      <compile-flags>-esdynamicimport -mutehosterrormsg -args summary -endargs</compile-flags>
+      <files>bug_5572_wscript_loadscript_loadmodule.js</files>
+      <compile-flags>-args summary -endargs</compile-flags>
+      <tags>exclude_jshost</tags>
     </default>
   </test>
 </regress-exe>

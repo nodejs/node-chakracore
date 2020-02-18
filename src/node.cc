@@ -2023,7 +2023,6 @@ Local<Context> NewContext(Isolate* isolate,
   context->SetEmbedderData(
       ContextEmbedderIndex::kAllowWasmCodeGeneration, True(isolate));
 
-#ifndef NODE_ENGINE_CHAKRACORE
   {
     // Run lib/internal/per_context.js
     Context::Scope context_scope(context);
@@ -2039,7 +2038,6 @@ Local<Context> NewContext(Isolate* isolate,
       return Local<Context>();
     }
   }
-#endif
 
   return context;
 }

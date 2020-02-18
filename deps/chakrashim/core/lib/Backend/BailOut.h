@@ -27,7 +27,7 @@ public:
     BailOutInfo(uint32 bailOutOffset, Func* bailOutFunc) :
         bailOutOffset(bailOutOffset), bailOutFunc(bailOutFunc),
         byteCodeUpwardExposedUsed(nullptr), polymorphicCacheIndex((uint)-1), startCallCount(0), startCallInfo(nullptr), bailOutInstr(nullptr),
-        totalOutParamCount(0), argOutSyms(nullptr), bailOutRecord(nullptr), wasCloned(false), isInvertedBranch(false), sharedBailOutKind(true), isLoopTopBailOutInfo(false), canDeadStore(true),
+        totalOutParamCount(0), argOutSyms(nullptr), bailOutRecord(nullptr), wasCloned(false), isInvertedBranch(false), sharedBailOutKind(true), isLoopTopBailOutInfo(false),
         outParamInlinedArgSlot(nullptr), liveVarSyms(nullptr), liveLosslessInt32Syms(nullptr), liveFloat64Syms(nullptr),
         branchConditionOpnd(nullptr),
         stackLiteralBailOutInfoCount(0), stackLiteralBailOutInfo(nullptr)
@@ -41,7 +41,9 @@ public:
 #endif
         this->capturedValues = JitAnew(bailOutFunc->m_alloc, CapturedValues);
         this->capturedValues->refCount = 1;
-        this->usedCapturedValues.argObjSyms = nullptr;
+
+        this->usedCapturedValues = JitAnew(bailOutFunc->m_alloc, CapturedValues);
+        this->usedCapturedValues->argObjSyms = nullptr;
     }
     void Clear(JitArenaAllocator * allocator);
 
@@ -69,7 +71,6 @@ public:
 #endif
     bool wasCloned;
     bool isInvertedBranch;
-    bool canDeadStore;
     bool sharedBailOutKind;
     bool isLoopTopBailOutInfo;
 
@@ -78,9 +79,9 @@ public:
 #endif
     uint32 bailOutOffset;
     BailOutRecord * bailOutRecord;
-    CapturedValues* capturedValues;                                      // Values we know about after forward pass
-    CapturedValues usedCapturedValues;                                  // Values that need to be restored in the bail out
-    BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed;            // Non-constant stack syms that needs to be restored in the bail out
+    CapturedValues * capturedValues;                                      // Values we know about after forward pass
+    CapturedValues * usedCapturedValues;                                  // Values that need to be restored in the bail out
+    BVSparse<JitArenaAllocator> * byteCodeUpwardExposedUsed;              // Non-constant stack syms that needs to be restored in the bail out
     uint polymorphicCacheIndex;
     uint startCallCount;
     uint totalOutParamCount;
